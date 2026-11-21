@@ -1,0 +1,12 @@
+{
+  "type": "compact:sunken",
+  "generator": {
+    "type": "minecraft:noise",
+    "seed": 286956243,
+    "settings": "compact:sunken",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "compact:all_sunken"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+import type { ComponentChildren } from 'preact'
+
+function icon(children: ComponentChildren) {
+	return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+		{children}
+	</svg>
+}
+
+export const Ico = {
+	plus: icon(<path d="M12 5v14M5 12h14" />),
+	minus: icon(<path d="M5 12h14" />),
+	close: icon(<path d="M6 6l12 12M18 6 6 18" />),
+	check: icon(<path d="m5 12.5 4.5 4.5L19 7.5" />),
+	undo: icon(<><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></>),
+	redo: icon(<><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></>),
+	trash: icon(<><path d="M4 7h16" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><path d="m6 7 1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" /><path d="M10 11v6M14 11v6" /></>),
+	copy: icon(<><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></>),
+	duplicate: icon(<><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M4 16V6a2 2 0 0 1 2-2h10" /><path d="M14 11v6M11 14h6" /></>),
+	sun: icon(<><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" /></>),
+	moon: icon(<path d="M20 14.2A8 8 0 1 1 9.8 4a6.4 6.4 0 0 0 10.2 10.2Z" />),
+	fit: icon(<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />),
+	tidy: icon(<><rect x="3" y="9" width="6" height="6" rx="1.5" /><rect x="15" y="3.5" width="6" height="6" rx="1.5" /><rect x="15" y="14.5" width="6" height="6" rx="1.5" /><path d="M9 12h3M15 6.5h-3v11h3" /></>),
+	image: icon(<><rect x="3" y="4.5" width="18" height="15" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m4 17 5-5 4 4 2.5-2.5L20 18" /></>),
+	dice: icon(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01" stroke-width="2.4" /></>),
+	help: icon(<><circle cx="12" cy="12" r="9" /><path d="M9.6 9.4a2.5 2.5 0 1 1 3.7 2.2c-.8.5-1.3 1-1.3 2" /><path d="M12 17h.01" stroke-width="2.4" /></>),
+	chevronDown: icon(<path d="m6 9 6 6 6-6" />),
+	chevronRight: icon(<path d="m9 6 6 6-6 6" />),
+	arrowLeft: icon(<path d="M19 12H5M11 6l-6 6 6 6" />),
+	unlink: icon(<><path d="M9.5 14.5 8 16a3.5 3.5 0 0 1-5-5l3-3a3.5 3.5 0 0 1 4.6-.3" /><path d="M14.5 9.5 16 8a3.5 3.5 0 0 1 5 5l-3 3a3.5 3.5 0 0 1-4.6.3" /><path d="M4 4l16 16" /></>),
+	restore: icon(<><path d="M4 12a8 8 0 1 0 2.6-5.9" /><path d="M4 5v4.5h4.5" /><path d="M12 8v4.5l3 1.8" /></>),
+	target: icon(<><circle cx="12" cy="12" r="7" /><path d="M12 2.5V6M12 18v3.5M2.5 12H6M18 12h3.5" /></>),
+	search: icon(<><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></>),
+	braces: icon(<><path d="M9 4c-2 0-3 1-3 3v2c0 1.5-.8 2.5-2 3 1.2.5 2 1.5 2 3v2c0 2 1 3 3 3" /><path d="M15 4c2 0 3 1 3 3v2c0 1.5.8 2.5 2 3-1.2.5-2 1.5-2 3v2c0 2-1 3-3 3" /></>),
+	graph: icon(<><rect x="3" y="4" width="7" height="6" rx="1.5" /><rect x="14" y="14" width="7" height="6" rx="1.5" /><path d="M10 7h2.5a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h1" /></>),
+	flow: icon(<><path d="M12 3 16 7l-4 4-4-4Z" /><rect x="3.5" y="15" width="7" height="5.5" rx="1.5" /><rect x="13.5" y="15" width="7" height="5.5" rx="1.5" /><path d="M8 7H7v8M16 7h1v8" /></>),
+	grid: icon(<path d="M5 5h.01M12 5h.01M19 5h.01M5 12h.01M12 12h.01M19 12h.01M5 19h.01M12 19h.01M19 19h.01" stroke-width="2.8" />),
+	height: icon(<><path d="M4 4h16M4 20h16" /><path d="M12 7.5v9M9 10.5l3-3 3 3M9 13.5l3 3 3-3" /></>),
+	sliders: icon(<><path d="M4 7h9M19 7h1M4 17h3M13 17h7" /><circle cx="16" cy="7" r="2.5" /><circle cx="10" cy="17" r="2.5" /></>),
+	paste: icon(<><rect x="5" y="5" width="14" height="16" rx="2" /><path d="M9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1Z" /><path d="M9 12h6M9 16h4" /></>),
+	lock: icon(<><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></>),
+	cube: icon(<><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></>),
+	home: icon(<><path d="m4 11 8-7 8 7" /><path d="M6 9.5V19a1 1 0 0 0 1 1h3.5v-5.5h3V20H17a1 1 0 0 0 1-1V9.5" /></>),
+	download: icon(<><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" /><path d="M5 19.5h14" /></>),
+	info: icon(<><circle cx="12" cy="12" r="9" /><path d="M12 11v6" /><path d="M12 7.5h.01" stroke-width="2.4" /></>),
+	file: icon(<><path d="M7 3.5h6.5L18 8v11a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1-1.5Z" /><path d="M13.5 3.5V8H18" /></>),
+	globe: icon(<><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3c2.6 2.5 3.8 5.5 3.8 9s-1.200 6.500-3.800 9c-2.600-2.500-3.800-5.500-3.800-9S9.400 5.500 12 3Z" /></>),
+	wave: icon(<path d="M2.5 12c2.4-6 4.700-6 7.100 0s4.700 6 7.100 0c1.200-3 2.400-4.500 4.800-4.500" />),
+	pin: icon(<><path d="M9 4h6l-1 6 3 3.500H7l3-3.500Z" /><path d="M12 13.500V20" /></>),
+	cave: icon(<><path d="M3 19.500C3 11 6.500 5 12 5s9 6 9 14.500" /><path d="M8.500 19.500c0-3.800 1.500-6.500 3.500-6.500s3.500 2.700 3.500 6.500" /><path d="M2 19.500h20" /></>),
+	tree: icon(<><path d="M12 3 6.500 10h3L5.500 15.500h13L14.500 10h3Z" /><path d="M12 15.500V21" /></>),
+	scatter: icon(<path d="M6 7h.01M14 5h.01M18 11h.01M9 13h.01M15 17h.01M6 19h.01" stroke-width="2.8" />),
+	grip: icon(<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="2.6" />),
+	eye: icon(<><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.8" /></>),
+}

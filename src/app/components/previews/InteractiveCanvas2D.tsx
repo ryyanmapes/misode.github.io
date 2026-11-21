@@ -80,13 +80,29 @@ export function InteractiveCanvas2D({ onSetup, onDraw, onHover, onResize, state,
 		function onMouseLeave () {
 			onHover?.(undefined)
 		}
+		// The scale that is actually applied by transform(), which snaps to powers of two
+		function effectiveScale(scale: number) {
+			return Math.pow(2, Math.floor(Math.log(scale * pixelSize) / Math.log(2)))
+		}
 		function onWheel (e: WheelEvent) {
+			e.preventDefault()
+			if (!canvas.current) return
 			const newScale = Math.pow(2, Math.log(viewScale.current) / Math.log(2) + e.deltaY / 200)
 			if (newScale > minScale && newScale < maxScale) {
+				// Keep the world position under the cursor fixed while zooming
+				const oldEffective = effectiveScale(viewScale.current)
+				const newEffective = effectiveScale(newScale)
+				if (oldEffective !== newEffective) {
+					const fromCenterX = e.offsetX / pixelSize - Math.floor(canvas.current.clientWidth / 2) / pixelSize
+					const fromCenterY = e.offsetY / pixelSize - Math.floor(canvas.current.clientHeight / 2) / pixelSize
+					centerPos.current = [
+						centerPos.current[0] + fromCenterX * (oldEffective - newEffective),
+						centerPos.current[1] + fromCenterY * (oldEffective - newEffective),
+					]
+				}
 				viewScale.current = newScale
 				redraw.current()
 			}
-			e.preventDefault()
 		}
 		function onContextMenu(evt: MouseEvent) {
 			evt.preventDefault()

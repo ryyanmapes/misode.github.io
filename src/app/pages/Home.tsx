@@ -43,6 +43,9 @@ function Tools() {
 		<ToolCard title="Converter" icon="convert"
 			link="/convert/"
 			desc="Turn /give commands into loot tables" />
+		<ToolCard title="Worldgen Graph Editor"
+			link="/graph/"
+			desc="Build the terrain of a dimension as a node graph" />
 		<ToolCard title="Customized Worlds" icon="customized"
 			link="/customized/"
 			desc="Create data packs to customize your world" />

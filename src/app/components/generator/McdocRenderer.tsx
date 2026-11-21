@@ -12,7 +12,9 @@ import { Identifier as Identifier1204, ItemStack as ItemStack1204 } from 'deepsl
 import { Identifier, ItemStack } from 'deepslate/core'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks'
+import type { ComponentChildren } from 'preact'
+import { createContext } from 'preact'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'preact/hooks'
 import config from '../../Config.js'
 import { useLocale } from '../../contexts/Locale.jsx'
 import { useVersion } from '../../contexts/Version.jsx'
@@ -31,6 +33,25 @@ export interface McdocContext extends core.CheckerContext {
 
 type MakeEdit = (edit: (range: core.Range) => JsonNode | undefined) => void
 
+/**
+ * What a page that shows the form inside of something else can change about it.
+ * The generator pages change nothing.
+ */
+export interface McdocEmbed {
+	/** The ids that exist for a registry. A field for that registry is then a dropdown of these, in this order. */
+	options?: (registry: string) => string[] | undefined
+	/** Leaves out the links to the generator of what a field refers to */
+	noLinks?: boolean
+	/** What is drawn in front of an id, instead of the picture of the item or block. Nothing leaves it out. */
+	preview?: (registry: string, id: string, tags: string | undefined) => ComponentChildren
+	/** What is shown when the pointer rests on a field with an id, for example what a tag contains */
+	hint?: (registry: string, value: string, tags: string | undefined) => string | undefined
+	/** Fields at the top of the form that are left out, because they are edited somewhere else */
+	hideRootFields?: string[]
+}
+
+export const McdocEmbedContext = createContext<McdocEmbed>({})
+
 interface Props<Type extends SimplifiedMcdocType = SimplifiedMcdocType> {
 	type: Type
 	optional?: boolean
@@ -40,9 +61,10 @@ interface Props<Type extends SimplifiedMcdocType = SimplifiedMcdocType> {
 }
 export function McdocRoot({ type, node, ctx } : Props) {
 	const { locale } = useLocale()
+	const embed = useContext(McdocEmbedContext)
 
 	if (type.kind === 'struct' && type.fields.length > 0 && JsonObjectNode.is(node)) {
-		return <StructBody type={type} node={node} ctx={ctx} />
+		return <StructBody type={type} node={node} ctx={ctx} hidden={embed.hideRootFields} />
 	}
 
 	return <>
@@ -143,6 +165,7 @@ const SPECIAL_UNSET = '__unset__'
 function StringHead({ type, optional, excludeStrings, node, ctx }: Props<StringType>) {
 	const { locale } = useLocale()
 	const { version } = useVersion()
+	const embed = useContext(McdocEmbedContext)
 
 	const nodeValue = (JsonStringNode.is(node) ? node.value : undefined)?.replaceAll('\n', '\\n')
 	const [value, setValue] = useState(nodeValue)
@@ -160,7 +183,9 @@ function StringHead({ type, optional, excludeStrings, node, ctx }: Props<StringT
 	const idTags = idAttribute?.kind === 'tree' && idAttribute.values.tags?.kind === 'literal' && idAttribute.values.tags.value.kind === 'string'
 		? idAttribute.values.tags.value.value
 		: undefined
-	const isSelect = idRegistry && isSelectRegistry(idRegistry, version)
+	// The ids that the page allows for this registry, which makes the field a dropdown of them
+	const choices = idRegistry ? embed.options?.(idRegistry) : undefined
+	const isSelect = choices !== undefined || (idRegistry && isSelectRegistry(idRegistry, version))
 
 	const onChangeValue = useCallback((newValue: string) => {
 		newValue = newValue.replaceAll('\\n', '\n')
@@ -194,6 +219,8 @@ function StringHead({ type, optional, excludeStrings, node, ctx }: Props<StringT
 	}, [type, excludeStrings, node, ctx])
 
 	const datalistId = `mcdoc_completions_${hexId()}`
+	// An id without a namespace is one of the game
+	const chosen = choices !== undefined && value !== undefined && !value.includes(':') ? `minecraft:${value}` : value
 
 	const gen = idRegistry ? config.generators.find(gen => gen.id === idRegistry) : undefined
 
@@ -206,19 +233,28 @@ function StringHead({ type, optional, excludeStrings, node, ctx }: Props<StringT
 	}, [onChangeValue])
 
 	return <>
-		{((idRegistry === 'item' || idRegistry === 'block') && idTags !== 'implicit' && value && !value.startsWith('#')) && <ItemIdPreview id={value}/>}
-		{isSelect ? <>
+		{idRegistry && embed.preview
+			? embed.preview(idRegistry, value ?? '', idTags)
+			: ((idRegistry === 'item' || idRegistry === 'block') && idTags !== 'implicit' && value && !value.startsWith('#')) && <ItemIdPreview id={value}/>}
+		{isSelect ? (choices !== undefined ? <>
+			<select class="long-input" value={value === undefined ? SPECIAL_UNSET : chosen} title={chosen} onInput={(e) => onChangeValue((e.target as HTMLInputElement).value)}>
+				{(value === undefined || optional) && <option value={SPECIAL_UNSET}>{locale('unset')}</option>}
+				{(chosen !== undefined && !choices.includes(chosen)) && <option value={chosen}>{chosen} (not found)</option>}
+				{choices.map(choice => <option value={choice}>{choice.replace(/^minecraft:/, '')}</option>)}
+			</select>
+		</> : <>
 			<select value={value === undefined ? SPECIAL_UNSET : value} onInput={(e) => onChangeValue((e.target as HTMLInputElement).value)}>
 				{(value === undefined || optional) && <option value={SPECIAL_UNSET}>{locale('unset')}</option>}
 				{(value !== undefined && !completions.map(c => c.value).includes(value)) && <option value={value}>{value}</option>}
 				{completions.map(c => <option value={c.value}>{formatIdentifier(c.value)}</option>)}
 			</select>
-		</> : <>
+		</>) : <>
 			{completions.length > 0 && <datalist id={datalistId}>
 				{completions.map(c => <option>{c.value}</option>)}
 			</datalist>}
-			<input class={colorKind === 'hex_rgb' ? 'short-input' : idRegistry ? 'long-input' : ''} value={value ?? ''} onInput={(e) => setValue((e.target as HTMLInputElement).value)} onBlur={onCommitValue} onSubmit={onCommitValue} onKeyDown={(e) => {if (e.key === 'Enter') onCommitValue()}} list={completions.length > 0 ? datalistId : undefined} />
-			{value && gen && <a href={`/${gen.url}/?preset=${value?.replace(/^minecraft:/, '')}`} class="tooltipped tip-se" aria-label={locale('follow_reference')}>
+			<input class={colorKind === 'hex_rgb' ? 'short-input' : idRegistry ? 'long-input' : ''} value={value ?? ''} onInput={(e) => setValue((e.target as HTMLInputElement).value)} onBlur={onCommitValue} onSubmit={onCommitValue} onKeyDown={(e) => {if (e.key === 'Enter') onCommitValue()}} list={completions.length > 0 ? datalistId : undefined}
+				title={idRegistry ? embed.hint?.(idRegistry, value ?? '', idTags) : undefined} />
+			{value && gen && !embed.noLinks && <a href={`/${gen.url}/?preset=${value?.replace(/^minecraft:/, '')}`} class="tooltipped tip-se" aria-label={locale('follow_reference')}>
 				{Octicon.link_external}
 			</a>}
 		</>}
@@ -510,7 +546,7 @@ function StructHead({ type: outerType, optional, node, ctx }: Props<SimplifiedSt
 	</>
 }
 
-function StructBody({ type: outerType, node, ctx }: Props<SimplifiedStructType>) {
+function StructBody({ type: outerType, node, ctx, hidden }: Props<SimplifiedStructType> & { hidden?: string[] }) {
 	if (!JsonObjectNode.is(node)) {
 		return <></>
 	}
@@ -531,7 +567,7 @@ function StructBody({ type: outerType, node, ctx }: Props<SimplifiedStructType>)
 		})
 		return keep
 	})
-	const staticFields = fields.filter(field => field.key.kind === 'literal')
+	const staticFields = fields.filter(field => field.key.kind === 'literal' && !hidden?.includes(field.key.value.value.toString()))
 	const dynamicFields = fields.filter(field => field.key.kind !== 'literal')
 	const staticChilds: core.PairNode<JsonStringNode, JsonNode>[] = []
 	return <>
@@ -558,7 +594,7 @@ function StructBody({ type: outerType, node, ctx }: Props<SimplifiedStructType>)
 		})}
 		{node.children.map((pair, index) => {
 			const key = pair.key?.value
-			if (staticChilds.includes(pair) || !key) {
+			if (staticChilds.includes(pair) || !key || hidden?.includes(key)) {
 				return <></>
 			}
 			if (pair.value && core.Range.length(pair.value.range) === 0) {

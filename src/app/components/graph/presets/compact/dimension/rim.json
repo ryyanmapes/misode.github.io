@@ -1,0 +1,11 @@
+{
+  "type": "compact:rim",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "compact:rim",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "compact:rim"
+    }
+  }
+}

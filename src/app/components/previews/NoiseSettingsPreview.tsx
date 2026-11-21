@@ -114,7 +114,7 @@ export const NoiseSettingsPreview = ({ docAndNode, shown }: PreviewProps) => {
 	</>
 }
 
-const BlockColors: Record<string, Color> = {
+export const BlockColors: Record<string, Color> = {
 	'minecraft:air': hexToRgb('#96a0aa'),
 	'minecraft:water': hexToRgb('#1450aa'),
 	'minecraft:lava': hexToRgb('#c86400'),

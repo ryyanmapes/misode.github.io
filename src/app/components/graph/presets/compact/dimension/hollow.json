@@ -1,0 +1,11 @@
+{
+  "type": "compact:hollow",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "compact:hollow",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "compact:hollow"
+    }
+  }
+}

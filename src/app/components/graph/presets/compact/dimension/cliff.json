@@ -1,0 +1,11 @@
+{
+  "type": "compact:cliff",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "compact:cliff",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "compact:cliff"
+    }
+  }
+}

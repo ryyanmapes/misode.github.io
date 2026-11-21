@@ -40,6 +40,11 @@ export default defineConfig({
 					title: `${English[`title.${id}`] ?? ''} - ${getVersions()}`,
 					template,
 				})),
+				...['graph', 'graph/dimension', 'graph/noise', 'graph/densities', 'graph/material-rules', 'graph/features', 'graph/placers', 'graph/view', 'graph/export', 'graph/final-density', 'graph/material-rule'].map(id => html({
+					fileName: `${id}/index.html`,
+					title: `${English['title.graph']} - Minecraft 26.3, 1.19.2`,
+					template,
+				})),
 				...config.generators.map(m => html({
 					fileName: `${m.url}/index.html`,
 					title: `${English[m.id] ?? ''} Generator${m.category === true ? 's' : ''} - ${getVersions(m)}`,

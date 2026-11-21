@@ -1,0 +1,83 @@
+{
+  "temperature": 2,
+  "downfall": 0,
+  "precipitation": "none",
+  "creature_spawn_probability": 0.05,
+  "effects": {
+    "sky_color": 7291434,
+    "fog_color": 3344392,
+    "water_color": 4159204,
+    "water_fog_color": 329011,
+    "grass_color_modifier": "swamp",
+    "ambient_sound": "minecraft:ambient.nether_wastes.loop",
+    "mood_sound": {
+      "sound": "minecraft:ambient.nether_wastes.mood",
+      "tick_delay": 6000,
+      "block_search_extent": 8,
+      "offset": 2
+    },
+    "additions_sound": {
+      "sound": "minecraft:ambient.nether_wastes.additions",
+      "tick_chance": 0.0111
+    },
+    "music": {
+      "sound": "minecraft:music.nether.nether_wastes",
+      "min_delay": 12000,
+      "max_delay": 24000,
+      "replace_current_music": false
+    }
+  },
+  "spawners": {
+    "monster": [
+      {
+        "type": "minecraft:ghast",
+        "weight": 5,
+        "minCount": 1,
+        "maxCount": 3
+      },
+      {
+        "type": "minecraft:zombie",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 2
+      }
+    ],
+    "creature": [
+      {
+        "type": "minecraft:rabbit",
+        "weight": 1,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ],
+    "ambient": [],
+    "axolotls": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": []
+  },
+  "spawn_costs": {},
+  "carvers": {
+    "air": [
+      "compact:rim_deep_caves"
+    ]
+  },
+  "features": [
+    [
+      "compact:rim_gravel",
+      "compact:rim_dirt"
+    ],
+    [
+      "compact:rim_lava_spring",
+      "compact:rim_fire",
+      "minecraft:brown_mushroom_nether",
+      "minecraft:red_mushroom_nether",
+      "compact:rim_lower_quartz"
+    ],
+    [
+      "compact:rim_small_tree_patch",
+      "compact:rim_wither_rose"
+    ]
+  ]
+}
