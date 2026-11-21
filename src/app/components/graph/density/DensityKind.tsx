@@ -9,7 +9,7 @@ import type { NoiseShape, WorldgenEnv } from '../worldgen.js'
 import { createDensitySampler } from '../worldgen.js'
 import { hasThumb, HEADER_H, NODE_W, nodeHeight, PAD_TOP, ROW_H } from './convert.js'
 import type { ThumbResult, ThumbView } from './render.js'
-import { colorizeDensity, requestThumb, sliceSampler, THUMB_COLS, THUMB_ROWS } from './render.js'
+import { colorizeDensity, deltaSampler, requestThumb, sliceSampler, THUMB_COLS, THUMB_ROWS } from './render.js'
 import type { DensitySchema, DField } from './schema.js'
 import { CATEGORIES, fieldLabel } from './schema.js'
 
@@ -26,6 +26,8 @@ export interface DensityContextValue {
 	view: ThumbView
 	/** The JSON of what a node outputs, as a string */
 	keyOf: (id: string) => string | undefined
+	/** The JSON of the input that a node is compared with when the previews show deltas. Nothing for a node without inputs. */
+	deltaOf: (id: string) => string | undefined
 	/** Reports whether the function of a node could be evaluated */
 	onStatus?: (id: string, error: string | undefined) => void
 	/** The ids that exist, for the nodes that refer to one */
@@ -41,6 +43,7 @@ export const DensityContext = createContext<DensityContextValue>({
 	scale: undefined,
 	view: { mode: 'x', layer: 0, delta: false, centerH: 0, minV: 0, maxV: 128 },
 	keyOf: () => undefined,
+	deltaOf: () => undefined,
 })
 
 function Thumb({ id }: { id: string }) {
@@ -51,19 +54,26 @@ function Thumb({ id }: { id: string }) {
 	const [pending, setPending] = useState(false)
 	const key = ctx.keyOf(id)
 	const { env, seed, shape, view } = ctx
+	// With deltas the preview is what the node changed about one of its inputs
+	const base = view.delta ? ctx.deltaOf(id) : undefined
 
 	useEffect(() => {
 		if (!env || key === undefined) return
-		const cacheKey = `${env.version}|${env.rev}|${seed}|${shape.minY}|${shape.height}|${shape.legacyRandom}|${shape.xzSize}|${shape.ySize}|${view.mode}|${view.layer}|${view.delta}|${view.centerH}|${view.minV}|${view.maxV}|${key}`
+		const cacheKey = `${env.version}|${env.rev}|${seed}|${shape.minY}|${shape.height}|${shape.legacyRandom}|${shape.xzSize}|${shape.ySize}|${view.mode}|${view.layer}|${view.delta}|${view.centerH}|${view.minV}|${view.maxV}|${key}|${base}`
 		let done = false
-		const cancel = requestThumb(cacheKey, () => sliceSampler(createDensitySampler(env, JSON.parse(key), seed, shape), view.mode, view.layer, view.delta), view, next => {
+		const sampler = () => {
+			const fn = createDensitySampler(env, JSON.parse(key), seed, shape)
+			if (!view.delta) return sliceSampler(fn, view.mode, view.layer)
+			return sliceSampler(deltaSampler(fn, base === undefined ? undefined : createDensitySampler(env, JSON.parse(base), seed, shape)), view.mode, view.layer)
+		}
+		const cancel = requestThumb(cacheKey, sampler, view, next => {
 			done = true
 			setResult(next)
 			setPending(false)
 		})
 		if (!done) setPending(true)
 		return cancel
-	}, [env, key, seed, shape.minY, shape.height, shape.legacyRandom, shape.xzSize, shape.ySize, view])
+	}, [env, key, base, seed, shape.minY, shape.height, shape.legacyRandom, shape.xzSize, shape.ySize, view])
 
 	const error = result && 'error' in result ? result.error : undefined
 	useEffect(() => {

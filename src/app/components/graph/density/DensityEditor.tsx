@@ -14,7 +14,7 @@ import type { GDoc, GNode, GraphKind, HeightRange, PreviewBounds, ViewOptions } 
 import { NO_LINKS } from '../types.js'
 import { sessionObject, useSessionState } from '../session.js'
 import type { GraphFormat } from '../types.js'
-import { Checkbox, CopyButton, Field, IconButton, IdSelect, JsonField, Lockable, NumberField, Section, Segmented, Select, Slider, sliderStep, useStoredFlag } from '../ui.jsx'
+import { Checkbox, CopyButton, Field, formatNumber, IconButton, IdSelect, JsonField, Lockable, NumberField, Section, Segmented, Select, Slider, sliderStep, useStoredFlag } from '../ui.jsx'
 import type { Guide, HoverInfo, RasterSource, ViewportApi, ViewportMemo, VisibleArea } from '../Viewport2D.jsx'
 import { Viewport2D } from '../Viewport2D.jsx'
 import type { NoiseShape, WorldgenEnv } from '../worldgen.js'
@@ -23,7 +23,7 @@ import { densityFromJson, densitySerializer, layoutDensity } from './convert.js'
 import type { DensityContextValue } from './DensityKind.jsx'
 import { createDensityKind, DensityContext, densityTitle } from './DensityKind.jsx'
 import type { DensityRange, ThumbView, ViewMode } from './render.js'
-import { AIR_COLOR, colorizeDensity, colormapGradient, measureRegion, sliceSampler, SOLID_COLOR } from './render.js'
+import { AIR_COLOR, colorizeDensity, colormapGradient, deltaSampler, measureRegion, sliceSampler, SOLID_COLOR } from './render.js'
 import type { DensitySchema, DField } from './schema.js'
 import { CATEGORIES, fieldLabel } from './schema.js'
 
@@ -34,8 +34,8 @@ const FOLLOW_KEY = 'misode_graph_follow_view'
 const HEAT_KEY = 'misode_graph_heat'
 
 /**
- * What the preview shows: the selected node, how much it changes from the layer
- * before, or the final density that the whole graph ends in.
+ * What the preview shows: the selected node, what that node changed about one of
+ * its inputs, or the final density that the whole graph ends in.
  */
 type Show = 'standard' | 'delta' | 'final'
 
@@ -77,6 +77,23 @@ function storeChoice(key: string, value: string) {
 }
 
 type Axis = 'x' | 'y' | 'z'
+
+/** An input of a node that Delta can compare the node with */
+interface DeltaInput {
+	/** The name of the field of the node */
+	name: string
+	label: string
+	/** The label with what is connected to the input, or the number that it holds */
+	text: string
+	/** The JSON of what the input is, as a string */
+	json: string
+	/** Whether nothing is connected, so the input is a number */
+	constant: boolean
+	/** Whether a noise is somewhere in what is connected */
+	noisy: boolean
+}
+
+const NO_INPUTS: DeltaInput[] = []
 
 /** The coordinates where a gradient starts and ends, shown as lines in the preview */
 interface GradientLines {
@@ -147,6 +164,62 @@ export function DensityEditor({ store, schema, format, env, registries, name, sh
 		}
 	}, [serializer])
 
+	// Delta shows what a node changed about one of its inputs. These are the inputs of each node that it can be compared with.
+	const deltaInputsOf = useMemo(() => {
+		const links = indexLinks(doc)
+		const nodes = new Map(doc.nodes.map(n => [n.id, n]))
+		const noisy = new Map<string, boolean>()
+		const hasNoise = (id: string): boolean => {
+			const known = noisy.get(id)
+			if (known !== undefined) return known
+			// Counts as without noise while it is looked at, so a circle ends
+			noisy.set(id, false)
+			const node = nodes.get(id)
+			let result = false
+			if (node) {
+				const def = schema.get(node.type)
+				// What a reference, a spline or custom JSON leads to is not in the graph, so those count as noise
+				result = def.category === 'noise' || node.type === 'reference' || node.type === 'raw' || node.type === 'spline'
+					|| def.fields.some(field => field.kind === 'input' && (links.get(id)?.ins[field.name] ?? []).some(edge => hasNoise(edge.from)))
+			}
+			noisy.set(id, result)
+			return result
+		}
+		const cache = new Map<string, DeltaInput[]>()
+		return (id: string): DeltaInput[] => {
+			let inputs = cache.get(id)
+			if (inputs) return inputs
+			inputs = []
+			const node = nodes.get(id)
+			for (const field of node ? schema.get(node.type).fields : []) {
+				if (field.kind !== 'input') continue
+				const label = fieldLabel(field)
+				const edge = links.get(id)?.ins[field.name]?.[0]
+				const source = edge ? nodes.get(edge.from) : undefined
+				const value = node?.data.values?.[field.name]
+				if (edge && source) {
+					inputs.push({ name: field.name, label, text: `${label} · ${densityTitle(source, schema)}`, json: JSON.stringify(serializer(edge.from)), constant: false, noisy: hasNoise(edge.from) })
+				} else if (typeof value === 'number' || !field.optional) {
+					// An input that is left out is not there to compare with
+					const constant = typeof value === 'number' ? value : 0
+					inputs.push({ name: field.name, label, text: `${label} · ${formatNumber(constant)}`, json: JSON.stringify(constant), constant: true, noisy: false })
+				}
+			}
+			cache.set(id, inputs)
+			return inputs
+		}
+	}, [doc, schema, serializer])
+	// The input that was chosen for a node, by the id of the node. Without a choice it is the first input that noise flows into.
+	const [chosenInputs, setChosenInputs] = useState<Record<string, string>>({})
+	const deltaInputOf = useCallback((id: string) => {
+		const inputs = deltaInputsOf(id)
+		return inputs.find(input => input.name === chosenInputs[id])
+			?? inputs.find(input => !input.constant && input.noisy)
+			?? inputs.find(input => !input.constant)
+			?? inputs[0]
+	}, [deltaInputsOf, chosenInputs])
+	const deltaOf = useCallback((id: string) => deltaInputOf(id)?.json, [deltaInputOf])
+
 	const onStatus = useCallback((id: string, error: string | undefined) => {
 		setErrors(prev => {
 			if (prev[id] === error) return prev
@@ -174,12 +247,16 @@ export function DensityEditor({ store, schema, format, env, registries, name, sh
 		return { mode: 'x', layer: 0, delta: false, centerH: 0, minV: heights.min, maxV: heights.max }
 	}, [follow, look, bounds.y, shape])
 	const fixedScale = heat === 'fixed' ? scale : undefined
-	const context = useMemo<DensityContextValue>(() => ({ env, seed, shape, colormap, binary, scale: fixedScale, view, keyOf, onStatus, registries }), [env, seed, shape, colormap, binary, fixedScale, view, keyOf, onStatus, registries])
+	const context = useMemo<DensityContextValue>(() => ({ env, seed, shape, colormap, binary, scale: fixedScale, view, keyOf, deltaOf, onStatus, registries }), [env, seed, shape, colormap, binary, fixedScale, view, keyOf, deltaOf, onStatus, registries])
 
 	const output = doc.nodes.find(n => n.type === 'output')
 	const primaryId = store.selection[store.selection.length - 1]
 	const primary = doc.nodes.find(n => n.id === primaryId)
 	const active = primary ?? output
+	const activeId = active?.id
+	const onDeltaInput = useCallback((name: string) => {
+		if (activeId !== undefined) setChosenInputs(prev => prev[activeId] === name ? prev : { ...prev, [activeId]: name })
+	}, [activeId])
 
 	const display = useMemo<Display>(() => ({
 		colormap,
@@ -225,6 +302,7 @@ export function DensityEditor({ store, schema, format, env, registries, name, sh
 					{active && <Inspector node={active} isFallback={primary === undefined} count={store.selection.length} doc={doc} store={store} kind={kind} schema={schema}
 						json={keyOf(active.id)} registries={registries} env={env} shape={shape} seed={seed} onNewSeed={onNewSeed}
 						finalJson={output ? keyOf(output.id) : undefined} onLook={onLook}
+						deltaInputs={deltaInputsOf(active.id)} deltaInput={deltaInputOf(active.id)} onDeltaInput={onDeltaInput}
 						display={display} bounds={bounds} error={errors[active.id]} />}
 				</aside>
 			</div>
@@ -250,11 +328,15 @@ interface InspectorProps {
 	/** The final density of the whole graph */
 	finalJson: string | undefined
 	onLook: (look: ThumbView) => void
+	/** The inputs of the node that Delta can compare it with, and the one that it does */
+	deltaInputs: DeltaInput[]
+	deltaInput: DeltaInput | undefined
+	onDeltaInput: (name: string) => void
 	display: Display
 	bounds: PreviewBounds
 	error: string | undefined
 }
-const Inspector = memo(function Inspector({ node, isFallback, count, doc, store, kind, schema, json, registries, env, shape, seed, onNewSeed, finalJson, onLook, display, bounds, error }: InspectorProps) {
+const Inspector = memo(function Inspector({ node, isFallback, count, doc, store, kind, schema, json, registries, env, shape, seed, onNewSeed, finalJson, onLook, deltaInputs, deltaInput, onDeltaInput, display, bounds, error }: InspectorProps) {
 	const def = schema.get(node.type)
 	const category = CATEGORIES[def.category]
 
@@ -290,7 +372,7 @@ const Inspector = memo(function Inspector({ node, isFallback, count, doc, store,
 				<IconButton icon={Ico.trash} label="Delete node" tipSide="left" onClick={() => store.deleteSelection(kind)} />
 			</>}
 		</div>
-		<Preview nodeId={node.id} json={json} finalJson={finalJson} onLook={onLook} env={env} shape={shape} seed={seed} onNewSeed={onNewSeed} display={display} bounds={bounds} lines={lines}
+		<Preview nodeId={node.id} json={json} finalJson={finalJson} onLook={onLook} deltaInputs={deltaInputs} deltaInput={deltaInput} onDeltaInput={onDeltaInput} env={env} shape={shape} seed={seed} onNewSeed={onNewSeed} display={display} bounds={bounds} lines={lines}
 			title={node.type === 'output' ? 'Final density' : densityTitle(node, schema)} thumbError={error} />
 		{(def.fields.length > 0 || node.type === 'raw') && <Section title="Properties">
 			<Lockable locked={store.readOnly}>
@@ -330,6 +412,9 @@ interface PreviewProps {
 	finalJson: string | undefined
 	/** Reports what is visible, so the previews on nodes can show the same */
 	onLook: (look: ThumbView) => void
+	deltaInputs: DeltaInput[]
+	deltaInput: DeltaInput | undefined
+	onDeltaInput: (name: string) => void
 	title: string
 	env: WorldgenEnv | undefined
 	shape: NoiseShape
@@ -340,7 +425,7 @@ interface PreviewProps {
 	lines: GradientLines | undefined
 	thumbError: string | undefined
 }
-function Preview({ nodeId, json: nodeJson, finalJson, onLook, title: nodeTitle, env, shape, seed, onNewSeed, display, bounds, lines, thumbError }: PreviewProps) {
+function Preview({ nodeId, json: nodeJson, finalJson, onLook, deltaInputs = NO_INPUTS, deltaInput, onDeltaInput, title: nodeTitle, env, shape, seed, onNewSeed, display, bounds, lines, thumbError }: PreviewProps) {
 	const { colormap, binary, show, heat, scale } = display
 	const delta = show === 'delta'
 	// Choosing the final output leaves the previews on nodes as they were
@@ -369,19 +454,23 @@ function Preview({ nodeId, json: nodeJson, finalJson, onLook, title: nodeTitle, 
 	const layer = clamp(layers[view.layer], layerRange.min, layerRange.max - 1)
 	const setLayer = (value: number) => setLayers(prev => ({ ...prev, [view.layer]: clamp(Math.round(value), layerRange.min, layerRange.max - 1) }))
 
+	// With Delta the preview is what the node changed about one of its inputs: its value minus that of the input
+	const base = delta ? deltaInput?.json : undefined
 	const sampler = useMemo(() => {
 		if (!env) return undefined
 		try {
-			return { fn: createDensitySampler(env, JSON.parse(json), seed, shape) }
+			const fn = createDensitySampler(env, JSON.parse(json), seed, shape)
+			if (!delta) return { fn }
+			return { fn: deltaSampler(fn, base === undefined ? undefined : createDensitySampler(env, JSON.parse(base), seed, shape)) }
 		} catch (e) {
 			return { error: e instanceof Error ? e.message : String(e) }
 		}
-	}, [env, json, seed, shape])
+	}, [env, json, seed, shape, delta, base])
 
 	const sample = useMemo(() => {
 		const fn = sampler?.fn
-		return fn ? sliceSampler(fn, mode, layer, delta) : undefined
-	}, [sampler, mode, layer, delta])
+		return fn ? sliceSampler(fn, mode, layer) : undefined
+	}, [sampler, mode, layer])
 
 	useEffect(() => {
 		if (!area) return
@@ -395,7 +484,7 @@ function Preview({ nodeId, json: nodeJson, finalJson, onLook, title: nodeTitle, 
 		: heights, [mode, bounds.z.min, bounds.z.max, heights.min, heights.max])
 
 	// Colors are based on that whole area, so they do not shift when zooming in
-	const scope = `${showsFinal ? 'final' : nodeId}|${mode}|${delta}`
+	const scope = `${showsFinal ? 'final' : nodeId}|${mode}|${delta}|${delta ? deltaInput?.name : ''}`
 	useEffect(() => {
 		if (!sample) return
 		return measureRegion(sample, horizontal, vertical, measured => {
@@ -452,8 +541,8 @@ function Preview({ nodeId, json: nodeJson, finalJson, onLook, title: nodeTitle, 
 	const error = sampler?.error ?? renderError?.message ?? thumbError
 	const gradient = useMemo(() => colormapGradient(colormap), [colormap])
 	const layerName = view.layer.toUpperCase()
-	const low = delta ? 'lower' : 'air'
-	const high = delta ? 'higher' : 'solid'
+	const low = delta ? 'lowered' : 'air'
+	const high = delta ? 'raised' : 'solid'
 
 	return <Section title="Preview" actions={<>
 		<IconButton icon={Ico.dice} label="New random seed" tipSide="left" onClick={onNewSeed} />
@@ -470,11 +559,20 @@ function Preview({ nodeId, json: nodeJson, finalJson, onLook, title: nodeTitle, 
 		<div class="gx-preview-controls gx-preview-display">
 			<Select class="gx-select-compact gx-select-heat" label="How the colors are scaled" value={heat} onChange={v => display.onChange({ heat: v as Heat })} options={HEATS} />
 			<Select class="gx-select-compact gx-select-show" label="What the preview shows" value={show} onChange={v => display.onChange({ show: v as Show })} options={SHOWS} />
-			<Checkbox label="Binary" hint={delta ? 'Show only whether the density goes up or not' : 'Show only whether the density is solid or air'}
+			<Checkbox label="Binary" hint={delta ? 'Show only whether the node raised its input or not' : 'Show only whether the density is solid or air'}
 				checked={binary} onChange={next => display.onChange({ binary: next })} />
 			<Select class="gx-select-compact" label="Colors" value={colormap} onChange={v => display.onChange({ colormap: v as ColormapType })}
 				options={ColormapTypes.map(c => ({ value: c, label: c[0].toUpperCase() + c.slice(1) }))} />
 		</div>
+		{delta && <div class="gx-preview-controls gx-preview-delta">
+			{deltaInput
+				? <label class="gx-inline-field gx-inline-grow">
+					<span>Relative to</span>
+					<Select label="The input that the node is compared with" value={deltaInput.name} onChange={onDeltaInput}
+						options={deltaInputs.map(input => ({ value: input.name, label: input.text }))} />
+				</label>
+				: <span class="gx-muted">This node has no inputs, so it changed nothing: its delta is zero everywhere.</span>}
+		</div>}
 		{heat === 'fixed' && <div class="gx-preview-controls gx-preview-scale">
 			<label class="gx-inline-field">
 				<span>Scale</span>
@@ -507,15 +605,15 @@ function Preview({ nodeId, json: nodeJson, finalJson, onLook, title: nodeTitle, 
 				: <span class="gx-muted">{lines && !guides
 					? `The from and to lines of this gradient show in ${LINE_VIEWS[lines.axis]}`
 					: guides ? (lines?.onChange ? 'Drag the handles of the lines to move where the gradient starts and ends' : 'The lines show where the gradient starts and ends')
-						: delta ? `Showing the change from ${layerName} ${layer - 1} to ${layerName} ${layer}`
+						: delta ? (deltaInput ? `Showing what ${title} changed: its value minus its input, ${deltaInput.text}` : 'A node without inputs has nothing to be compared with')
 							: showsFinal && title !== nodeTitle ? `Showing the final output while editing ${nodeTitle}`
 								: 'Hover over the preview to read values'}</span>}
 		</div>
 		<div class="gx-legend" aria-label={binary ? `Two colors: ${low} and ${high}` : range ? `Colors range from ${formatDensity(-range.limit)} to ${formatDensity(range.limit)}` : undefined}>
 			{binary
 				? <div class="gx-legend-binary">
-					<span><span class="gx-swatch" style={{ background: `rgb(${AIR_COLOR.join(', ')})` }} />{delta ? 'Lower or the same' : 'Air, zero or below'}</span>
-					<span><span class="gx-swatch" style={{ background: `rgb(${SOLID_COLOR.join(', ')})` }} />{delta ? 'Higher' : 'Solid, above zero'}</span>
+					<span><span class="gx-swatch" style={{ background: `rgb(${AIR_COLOR.join(', ')})` }} />{delta ? 'Lowered or left the same' : 'Air, zero or below'}</span>
+					<span><span class="gx-swatch" style={{ background: `rgb(${SOLID_COLOR.join(', ')})` }} />{delta ? 'Raised' : 'Solid, above zero'}</span>
 				</div>
 				: <>
 					<div class="gx-legend-bar" style={{ background: gradient }} />

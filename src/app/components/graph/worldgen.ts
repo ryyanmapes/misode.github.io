@@ -91,7 +91,7 @@ export function registerOwn(env: WorldgenEnv, own: Own): Record<string, number> 
 		{ prefix: 'noise:', items: own.noises, registry: registries.NOISE, parse: json => env.format === 'modern' ? env.d.NormalNoise.fromJson(json) : env.d.NoiseParameters.fromJson(json) },
 		{ prefix: 'density:', items: own.densities, registry: registries.DENSITY_FUNCTION, parse: json => env.format === 'modern' ? env.d.DensityFunction.fromJson(json) : env.d.DensityFunction.fromJson(json) },
 		// Before 26.3 rules have no registry. There, the rules that are run by their id are looked up when a rule is parsed.
-		{ prefix: 'rule:', items: own.rules, registry: env.format === 'modern' ? registries.MATERIAL_RULE : undefined, parse: json => env.format === 'modern' ? env.d.MaterialRule.fromJson(patchRule(json)) : json },
+		{ prefix: 'rule:', items: own.rules, registry: env.format === 'modern' ? registries.MATERIAL_RULE : undefined, parse: json => env.format === 'modern' ? parseModernRule(env.d, json) : json },
 	]
 	const result: Record<string, number> = {}
 	const present = new Set<string>()
@@ -261,6 +261,38 @@ function patchRule(json: unknown): unknown {
 	return result
 }
 
+/**
+ * Deepslate only knows the biomes of the game, and cannot read a rule that asks about another one.
+ * A dimension has a biome of its own, so the biomes that a rule asks about are made known first.
+ */
+function knowBiomes(d: typeof Modern, json: unknown) {
+	if (Array.isArray(json)) {
+		for (const item of json) knowBiomes(d, item)
+		return
+	}
+	if (!isObject(json)) return
+	if (strip(json.type) === 'biome') {
+		for (const biome of Array.isArray(json.biome_is) ? json.biome_is : [json.biome_is]) {
+			// A tag is a list of biomes that are known already
+			if (typeof biome !== 'string' || biome.startsWith('#')) continue
+			try {
+				const id = d.Identifier.parse(biome)
+				const biomes = d.WorldgenRegistries.BIOME as unknown as AnyRegistry
+				if (!biomes.has(id)) biomes.register(id, {})
+			} catch (e) {
+				// An id that cannot be read shows as an error where the rule is used
+			}
+		}
+	}
+	for (const value of Object.values(json)) knowBiomes(d, value)
+}
+
+/** Reads a rule of 26.3 */
+function parseModernRule(d: typeof Modern, json: unknown) {
+	knowBiomes(d, json)
+	return d.MaterialRule.fromJson(patchRule(json))
+}
+
 interface ModernInternals {
 	createNoiseChunk(randomState: Modern.RandomState, chunk: Modern.Chunk, onlyFirstZ: boolean): Modern.NoiseChunk
 	doFill(chunk: Modern.Chunk, noiseChunk: Modern.NoiseChunk): void
@@ -289,7 +321,7 @@ function modernBackend(d: typeof Modern, settingsJson: unknown, seed: bigint, bi
 		noop: d.MaterialRule.NOOP,
 		defaultBlock: settings.defaultBlock,
 		onlyDefault: false,
-		parse: json => d.MaterialRule.fromJson(patchRule(json)),
+		parse: json => parseModernRule(d, json),
 		fill: (chunkX, chunkZ) => {
 			const chunk = new d.Chunk(minY, height, d.ChunkPos.create(chunkX, chunkZ))
 			const noiseChunk = internals.createNoiseChunk(randomState, chunk, false)

@@ -166,21 +166,26 @@ export type ViewMode = 'x' | 'z' | 'top'
 /**
  * Turns a density function into the image of one view: the value at a horizontal
  * and vertical position. In the top view north is up, so Z grows downwards.
- * With `delta` it is the change from the layer before.
  */
-export function sliceSampler(fn: DensitySampler, mode: ViewMode, layer: number, delta: boolean): (h: number, v: number) => number {
-	const at = mode === 'x' ? (h: number, v: number, c: number) => fn(h, v, c)
-		: mode === 'z' ? (h: number, v: number, c: number) => fn(c, v, h)
-			: (h: number, v: number, c: number) => fn(h, c, -v)
-	return delta
-		? (h, v) => at(h, v, layer) - at(h, v, layer - 1)
-		: (h, v) => at(h, v, layer)
+export function sliceSampler(fn: DensitySampler, mode: ViewMode, layer: number): (h: number, v: number) => number {
+	return mode === 'x' ? (h, v) => fn(h, v, layer)
+		: mode === 'z' ? (h, v) => fn(layer, v, h)
+			: (h, v) => fn(h, layer, -v)
+}
+
+/**
+ * What a node changed about one of its inputs: its own value minus the value of that input.
+ * A node without inputs changed nothing, so that is zero everywhere.
+ */
+export function deltaSampler(fn: DensitySampler, input: DensitySampler | undefined): DensitySampler {
+	return input ? (x, y, z) => fn(x, y, z) - input(x, y, z) : () => 0
 }
 
 /** What the previews on nodes show: a view, its layer and the part that is visible */
 export interface ThumbView {
 	mode: ViewMode
 	layer: number
+	/** Whether the previews show what each node changed about one of its inputs, and not its value */
 	delta: boolean
 	/** The horizontal position in the middle */
 	centerH: number
