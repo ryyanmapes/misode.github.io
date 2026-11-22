@@ -59,7 +59,7 @@ export function ExportPanel({ version, data, editable }: Props) {
 				<div>
 					<h2>Download as a data pack</h2>
 					<p>
-						{data.id} for Minecraft {version.label}, with its biome, noises, densities, {rule}s, carvers, features and placers as {editable ? 'they are in the editor now' : 'they are in this example'}.
+						{data.id} for Minecraft {version.label}, with its biome, noises, densities, {rule}s, carvers, templates, features and placers as {editable ? 'they are in the editor now' : 'they are in this example'}.
 					</p>
 				</div>
 				<button type="button" class="gx-btn gx-btn-filled" disabled={busy || !source} onClick={download}>

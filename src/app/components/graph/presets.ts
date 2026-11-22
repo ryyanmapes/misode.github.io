@@ -1,6 +1,7 @@
 import type { VersionId } from '../../services/index.js'
 import { fetchPreset } from '../../services/index.js'
 import { loadGameUse } from './gameUse.js'
+import type { TemplateMeta } from './templates.js'
 import type { GDoc, GraphFormat } from './types.js'
 
 /** Everything that the editor knows about one dimension, as the JSON files of a data pack */
@@ -31,6 +32,8 @@ export interface DimensionData {
 	carvers: Record<string, unknown>
 	/** The ids of the carvers that the dimension uses, in the order in which they carve */
 	carving: string[]
+	/** Templates of the data pack: builds that were saved as structure files. Their files are kept apart, this is what is known about each. */
+	templates: Record<string, TemplateMeta>
 	/**
 	 * Set for a dimension of the game itself. What it lists as its noises, density functions, rules, carvers,
 	 * features and placers are then the ones of the game that it uses, which need no files in a data pack.
@@ -241,6 +244,7 @@ function vanilla(id: string, dimension: string, label: string, biome: string): G
 				settings,
 				rule,
 				...used,
+				templates: {},
 				...biomeLists(file),
 				biomeFiles: { [biome]: file },
 				biomes: [biome],
@@ -333,6 +337,7 @@ function compact(name: string, label: string, biome: string): GraphPreset {
 				decoration: [],
 				carvers,
 				carving,
+				templates: {},
 				biomeFiles: { [biome]: withoutPlacers(file.default) },
 				biomes: [biome],
 			}
@@ -448,6 +453,7 @@ export function blankDimension(format: GraphFormat, id: string): DimensionData {
 		decoration: [],
 		carvers: {},
 		carving: [],
+		templates: {},
 		biomeFiles: { [id]: blankBiome(format) },
 		biomes: [id],
 	}, format, id)
@@ -488,10 +494,10 @@ export function fromTemplate(template: DimensionData & Graphs, format: GraphForm
 	for (const key of ['density', 'material', 'densityDocs', 'ruleDocs'] as const) {
 		if (template[key] !== undefined) Object.assign(graphs, { [key]: template[key] })
 	}
-	const { densityFunctions, noises, rules, features, placers, carvers } = template.fromGame
-		? { densityFunctions: {}, noises: {}, rules: {}, features: {}, placers: {}, carvers: {} }
+	const { densityFunctions, noises, rules, features, placers, carvers, templates } = template.fromGame
+		? { densityFunctions: {}, noises: {}, rules: {}, features: {}, placers: {}, carvers: {}, templates: {} }
 		: template
-	return withDimensionId(structuredClone({ id, dimension, dimensionType, settings, rule, densityFunctions, noises, rules, features, placers, decoration, carvers, carving, biomeFiles, biomes, ...graphs }), format, id)
+	return withDimensionId(structuredClone({ id, dimension, dimensionType, settings, rule, densityFunctions, noises, rules, features, placers, decoration, carvers, carving, templates, biomeFiles, biomes, ...graphs }), format, id)
 }
 
 /** The dimensions of the game, which every version has */

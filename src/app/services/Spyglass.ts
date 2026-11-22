@@ -201,11 +201,17 @@ export class SpyglassService {
 		}
 	}
 
-	public async applyEdit(uri: string, edit: (node: core.FileNode<core.AstNode>) => void) {
+	/**
+	 * Changes a document and checks it again. With `amend` the change belongs to the edit before it: undo takes both back in one step.
+	 * Gives the document as it is after the check.
+	 */
+	public async applyEdit(uri: string, edit: (node: core.FileNode<core.AstNode>) => void, amend = false): Promise<core.DocAndNode | undefined> {
 		const document = this.client.documents.get(uri)
 		if (document !== undefined) {
-			document.undoStack.push(document.doc.getText())
-			document.redoStack = []
+			if (!amend) {
+				document.undoStack.push(document.doc.getText())
+				document.redoStack = []
+			}
 			const docAndNode = this.service.project.getClientManaged(uri)
 			if (!docAndNode) {
 				throw new Error(`[Spyglass#applyEdit] Cannot get doc and node: ${uri}`)
@@ -215,7 +221,9 @@ export class SpyglassService {
 			TextDocument.update(document.doc, [{ text: newText }], document.doc.version + 1)
 			await this.service.project.externals.fs.writeFile(uri, document.doc.getText())
 			await this.notifyChange(document.doc)
+			return this.service.project.getClientManaged(uri)
 		}
+		return undefined
 	}
 
 	public formatNode(node: json.JsonNode, uri: string) {

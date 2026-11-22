@@ -162,6 +162,16 @@ function Body({ type, optional, node, ctx }: Props<SimplifiedMcdocType>) {
 
 const SPECIAL_UNSET = '__unset__'
 
+/** The registry that a text is an id of, when it is one */
+function idRegistryOf(type: SimplifiedMcdocType): string | undefined {
+	const idAttribute = type.attributes?.find(a => a.name === 'id')?.value
+	return idAttribute?.kind === 'literal' && idAttribute.value.kind === 'string'
+		? idAttribute.value.value
+		: idAttribute?.kind === 'tree' && idAttribute.values.registry?.kind === 'literal' && idAttribute.values.registry.value.kind === 'string'
+			? idAttribute.values.registry.value.value
+			: undefined
+}
+
 function StringHead({ type, optional, excludeStrings, node, ctx }: Props<StringType>) {
 	const { locale } = useLocale()
 	const { version } = useVersion()
@@ -175,11 +185,7 @@ function StringHead({ type, optional, excludeStrings, node, ctx }: Props<StringT
 	}, [nodeValue])
 
 	const idAttribute = type.attributes?.find(a => a.name === 'id')?.value
-	const idRegistry = idAttribute?.kind === 'literal' && idAttribute.value.kind === 'string'
-		? idAttribute.value.value
-		: idAttribute?.kind === 'tree' && idAttribute.values.registry?.kind === 'literal' && idAttribute.values.registry.value.kind === 'string'
-			? idAttribute.values.registry.value.value
-			: undefined
+	const idRegistry = idRegistryOf(type)
 	const idTags = idAttribute?.kind === 'tree' && idAttribute.values.tags?.kind === 'literal' && idAttribute.values.tags.value.kind === 'string'
 		? idAttribute.values.tags.value.value
 		: undefined
@@ -546,16 +552,9 @@ function StructHead({ type: outerType, optional, node, ctx }: Props<SimplifiedSt
 	</>
 }
 
-function StructBody({ type: outerType, node, ctx, hidden }: Props<SimplifiedStructType> & { hidden?: string[] }) {
-	if (!JsonObjectNode.is(node)) {
-		return <></>
-	}
-
-	const { expand, collapse, isToggled } = useToggles()
-
-	const type = node.typeDef?.kind === 'struct' ? node.typeDef : outerType
+function structFields(type: SimplifiedStructType, ctx: core.CheckerContext) {
 	// For some reason spyglass can include fields that haven't been filtered out in node.typeDef
-	const fields = type.fields.filter(field => {
+	return type.fields.filter(field => {
 		let keep = true
 		handleAttributes(field.attributes, ctx, (handler, config) => {
 			if (!keep || !handler.filterElement) {
@@ -567,6 +566,37 @@ function StructBody({ type: outerType, node, ctx, hidden }: Props<SimplifiedStru
 		})
 		return keep
 	})
+}
+
+/**
+ * The keys that the type of a checked object has a field for, and whether it takes other keys as well.
+ * A key that is neither is shown as an unknown key. Undefined when the object has no type of its own.
+ */
+export function knownKeys(node: JsonObjectNode, ctx: core.CheckerContext): { keys: Set<string>, open: boolean } | undefined {
+	if (node.typeDef?.kind !== 'struct') {
+		return undefined
+	}
+	const keys = new Set<string>()
+	let dynamic: SimplifiedStructTypePairField | undefined
+	for (const field of structFields(node.typeDef, ctx)) {
+		if (field.key.kind === 'literal') {
+			keys.add(field.key.value.value.toString())
+		} else {
+			dynamic ??= field
+		}
+	}
+	return { keys, open: dynamic !== undefined && !(dynamic.key.kind === 'any' && dynamic.type.kind === 'any') }
+}
+
+function StructBody({ type: outerType, node, ctx, hidden }: Props<SimplifiedStructType> & { hidden?: string[] }) {
+	if (!JsonObjectNode.is(node)) {
+		return <></>
+	}
+
+	const { expand, collapse, isToggled } = useToggles()
+
+	const type = node.typeDef?.kind === 'struct' ? node.typeDef : outerType
+	const fields = structFields(type, ctx)
 	const staticFields = fields.filter(field => field.key.kind === 'literal' && !hidden?.includes(field.key.value.value.toString()))
 	const dynamicFields = fields.filter(field => field.key.kind !== 'literal')
 	const staticChilds: core.PairNode<JsonStringNode, JsonNode>[] = []
@@ -1284,10 +1314,16 @@ interface ErrorsProps {
 	ctx: McdocContext
 }
 function Errors({ type, node, ctx }: ErrorsProps) {
+	const embed = useContext(McdocEmbedContext)
 	const errors = useMemo(() => {
 		if (node === undefined) {
 			return []
 		}
+		// An id that the page says exists is not unknown, also when the checker has never heard of it
+		const registry = type.kind === 'string' ? idRegistryOf(type) : undefined
+		const value = JsonStringNode.is(node) ? node.value : undefined
+		const exists = registry !== undefined && value !== undefined
+			&& embed.options?.(registry)?.includes(value.includes(':') ? value : `minecraft:${value}`) === true
 		const errors = ctx.err.errors
 			// Get all errors inside the current node
 			.filter(e => core.Range.containsRange(node.range, e.range, true))
@@ -1295,11 +1331,12 @@ function Errors({ type, node, ctx }: ErrorsProps) {
 			.filter(e => !node.children?.some(c => (c.type === 'item' || c.type === 'pair') && core.Range.containsRange(c.range, e.range, true)))
 			// Filter out "Missing key" errors
 			.filter(e => !(core.Range.length(e.range) === 1 && (type.kind === 'struct' || (type.kind === 'union' && JsonNode.is(node) && (selectUnionMember(type, node) ?? type.members[0]).kind === 'struct'))))
+			.filter(e => !(exists && e.severity < 3))
 		// Hide warnings if there are errors
 		return errors.find(e => e.severity === 3)
 			? errors.filter(e => e.severity === 3)
 			: errors
-	}, [type, node, ctx])
+	}, [type, node, ctx, embed])
 
 	return <>
 		{errors.map(e => <ErrorIndicator error={e} />)}	

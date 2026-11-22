@@ -10,7 +10,7 @@
  * - `blocks.ts`: what is known about blocks (air, fluids, solid, sturdy, replaceable, where plants survive) and heightmaps
  * - `providers.ts`, `states.ts`, `predicates.ts`: int, float and height providers, block state providers, block predicates and rule tests
  * - `placement.ts`: the placement modifiers of placed features
- * - `tree.ts`, `basic.ts`, `plants.ts`, `terrain.ts`, `cave.ts`: the features
+ * - `tree.ts`, `basic.ts`, `plants.ts`, `terrain.ts`, `cave.ts`, `template.ts`: the features
  */
 import { blockColumn, blockPile, disk, fillLayer, noOp, ore, overlay, randomBooleanSelector, randomPatch, randomSelector, replaceSingleBlock, scatteredOre, sequence, simpleBlock, simpleRandomSelector, spring, weightedRandomSelector } from './basic.js'
 import { AIR, heightOf, isSolidIn, tagEnv } from './blocks.js'
@@ -18,13 +18,14 @@ import { geode, largeDripstone, sculkPatch, speleothem, speleothemCluster } from
 import { PLACEMENT_MODIFIERS, runModifiers } from './placement.js'
 import { bamboo, chorusPlant, coralClaw, coralMushroom, coralTree, glowstoneBlob, hugeBrownMushroom, hugeFungus, hugeRedMushroom, kelp, multifaceGrowth, netherForestVegetation, randomNeighborSpread, rootSystem, seagrass, seaPickle, twistingVines, vegetationPatchFeature, vines, waterloggedVegetationPatch, weepingVines } from './plants.js'
 import { basaltColumns, basaltPillar, blockBlob, blueIce, bonusChest, delta, desertWell, endGateway, endIsland, endPlatform, endPodium, endSpike, freezeTopLayer, iceberg, lake, monsterRoom, netherrackReplaceBlobs, projectedRandomPatchySquare, singleBlockPillar, spike, steppedColumnCluster, underwaterMagma, voidStartPlatform } from './terrain.js'
+import { template } from './template.js'
 import { fallenTree, FOLIAGE_PLACERS, ROOT_PLACERS, tree, TREE_DECORATORS, TRUNK_PLACERS } from './tree.js'
 import type { Ctx, FBlock, FeatureData, FeatureFn, FeatureRandom, FeatureWorld, HeightmapType, PlacedResult, PlaceResult, Pos } from './types.js'
 import { configOf, fullId, isObj, shortId } from './util.js'
 
 export { isAir, isFluid } from './blocks.js'
 export { createRandom } from './random.js'
-export type { FBlock, FeatureData, FeatureRandom, FeatureWorld, HeightmapType, PlacedResult, PlaceResult } from './types.js'
+export type { FBlock, FeatureData, FeatureRandom, FeatureTemplate, FeatureWorld, HeightmapType, PlacedResult, PlaceResult } from './types.js'
 
 /** How deep features can be nested before the engine stops, which is what ends features that refer to themselves */
 const MAX_DEPTH = 24
@@ -36,6 +37,7 @@ const CALL_COST = 64
 /** Every feature type that the engine can generate, without namespace */
 const FEATURES: Readonly<Record<string, FeatureFn>> = {
 	tree,
+	template,
 	fallen_tree: fallenTree,
 	ore,
 	scattered_ore: scatteredOre,

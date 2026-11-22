@@ -150,6 +150,24 @@ export async function fetchPreset(versionId: VersionId, registry: string, id: st
 	}
 }
 
+/** The structure file of the game for an id without namespace. `folder` is what the version calls the folder of structure files. */
+export async function fetchStructureTemplate(versionId: VersionId, folder: string, id: string): Promise<Uint8Array> {
+	console.debug(`[fetchStructureTemplate] ${versionId} ${id}`)
+	const version = config.versions.find(v => v.id === versionId)!
+	await validateCache(version)
+	try {
+		const buffer = await cachedFetch(`${mcmeta(version, 'data')}/data/minecraft/${folder}/${id}.nbt`, {
+			decode: async r => {
+				if (!r.ok) throw new Error(`the game has no such file (${r.status})`)
+				return r.arrayBuffer()
+			},
+		})
+		return new Uint8Array(buffer)
+	} catch (e) {
+		throw new Error(`Error occurred while fetching the structure ${id}: ${message(e)}`)
+	}
+}
+
 export async function fetchAllPresets(versionId: VersionId, registry: string) {
 	console.debug(`[fetchAllPresets] ${versionId} ${registry}`)
 	const version = config.versions.find(v => v.id === versionId)!

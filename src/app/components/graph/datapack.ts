@@ -4,13 +4,17 @@ import type { AnyDimension, Own } from './items.js'
 import { inlineRules, mainDensityOf, mainRuleOf, NO_OWN, ownOf, registryOf } from './items.js'
 import type { DimensionData, GraphVersion } from './presets.js'
 import { biomeOf, withOwnBiome } from './presets.js'
+import { templateBytes, templatePath } from './templates.js'
 
 /** One file of a data pack */
 export interface PackFile {
 	path: string
 	/** What the file is, for people who read the list of files */
 	what: string
-	json: unknown
+	/** What a JSON file says */
+	json?: unknown
+	/** The contents of a file that is not JSON, such as the structure file of a template */
+	bytes?: Uint8Array
 }
 
 /** A dimension with what its graphs stand for */
@@ -20,6 +24,8 @@ export interface PackSource {
 	rule: unknown
 	/** The noises, density functions, rules, carvers, features and placed features that the dimension brings */
 	own: Own
+	/** The structure files of the templates of the dimension */
+	templates: { id: string, bytes: Uint8Array }[]
 }
 
 function filePath(folder: string, id: string) {
@@ -86,6 +92,9 @@ export function dimensionFiles(version: GraphVersion, source: PackSource): PackF
 	for (const [id, json] of Object.entries(own.placers)) {
 		files.push({ path: filePath('worldgen/placed_feature', id), what: 'Placed feature', json })
 	}
+	for (const { id, bytes } of source.templates) {
+		files.push({ path: templatePath(version.format, id), what: 'Template, as a structure file of the game', bytes })
+	}
 	if (biome) {
 		files.push({ path: filePath('worldgen/biome', biome.id), what: 'The biome of the dimension, with its carvers and placed features', json: biome.json })
 	}
@@ -96,8 +105,16 @@ export function dimensionFiles(version: GraphVersion, source: PackSource): PackF
 export async function loadPackSource(version: GraphVersion, dimension: AnyDimension): Promise<PackSource> {
 	// A dimension from before every dimension had a biome of its own gets the biome of the game that it used
 	const data = await withOwnBiome(version, dimension)
+	const templates: PackSource['templates'] = []
+	for (const [id, meta] of Object.entries(data.fromGame ? {} : data.templates)) {
+		const bytes = await templateBytes(meta.hash)
+		// A pack without the file would refer to a template that is not there
+		if (!bytes) throw new Error(`This browser no longer has the file of the template ${id}. Delete the template on the Templates tab and import its file again.`)
+		templates.push({ id, bytes })
+	}
 	return {
 		data,
+		templates,
 		finalDensity: mainDensityOf(data, version.format),
 		rule: mainRuleOf(data),
 		// A dimension of the game uses what the game has, which needs no files
@@ -133,7 +150,7 @@ export function fileName(name: string) {
 /** Offers the files as a zip to save */
 export async function downloadPack(name: string, files: PackFile[]) {
 	const encoder = new TextEncoder()
-	const url = await writeZip(files.map(file => [file.path, encoder.encode(`${JSON.stringify(file.json, null, 2)}\n`)]))
+	const url = await writeZip(files.map(file => [file.path, file.bytes ?? encoder.encode(`${JSON.stringify(file.json, null, 2)}\n`)]))
 	const link = document.createElement('a')
 	link.href = url
 	link.download = `${fileName(name)}.zip`

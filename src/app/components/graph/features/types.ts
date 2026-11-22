@@ -17,6 +17,13 @@ export interface FeatureWorld {
 	isLoaded(x: number, z: number): boolean
 }
 
+/** A structure file as features place it. Its blocks are indices in the palette plus one, at (x * sizeZ + z) * sizeY + y, and zero where it has nothing. */
+export interface FeatureTemplate {
+	size: [number, number, number]
+	palette: { name: string, properties: Record<string, string> }[]
+	cells: Uint16Array
+}
+
 /** Everything that features can refer to by id. Ids are full ids such as `minecraft:oak`; ids without a namespace are accepted as `minecraft:`. */
 export interface FeatureData {
 	format: 'modern' | 'legacy'
@@ -28,6 +35,8 @@ export interface FeatureData {
 	temperature?: number
 	/** The JSON of a carver, for the previews that cut caves before features are placed. Features themselves do not use it. */
 	carver?(id: string): unknown
+	/** modern: the structure file of a template. Undefined when there is none, and `loading` while its file is still being read. */
+	template?(id: string): FeatureTemplate | 'loading' | undefined
 	/** modern: an entry of the block state provider registry */
 	stateProvider(id: string): unknown
 	/** The ids of the blocks in a block tag, with nested tags already resolved. An empty set when the tag is unknown. The id comes without `#`. */

@@ -3886,3 +3886,157 @@ main.gx {
 .gx-iconbtn.is-active:hover:not(:disabled) {
 	background: color-mix(in srgb, var(--gx-primary-container) 86%, var(--gx-text));
 }
+
+/* === Templates === */
+
+/* Names and what they are, in two columns */
+.gx-facts {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	gap: 4px 14px;
+	margin: 0;
+	font-size: 13px;
+}
+
+.gx-facts dt {
+	color: var(--gx-text-2);
+}
+
+.gx-facts dd {
+	min-width: 0;
+	margin: 0;
+	color: var(--gx-text);
+	overflow-wrap: anywhere;
+}
+
+.gx-facts dd.gx-mono {
+	font-size: 12px;
+}
+
+.gx-section-body > .gx-facts + .gx-muted {
+	margin-top: 10px;
+}
+
+.gx-side-title p.gx-mono {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The blocks of a template that carry more than their state */
+.gx-blockdata {
+	display: grid;
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.gx-blockdata li {
+	display: grid;
+	gap: 6px;
+	padding: 10px 0;
+	border-top: 1px solid var(--gx-outline-soft);
+}
+
+.gx-blockdata-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-size: 13px;
+}
+
+.gx-blockdata-head strong {
+	font-weight: 500;
+	text-transform: capitalize;
+}
+
+.gx-blockdata-head .gx-mono {
+	margin-left: auto;
+	font-size: 12px;
+}
+
+.gx-blockdata .gx-facts {
+	padding-left: 20px;
+	font-size: 12.5px;
+}
+
+/* Where structure files are chosen or dropped */
+.gx-drop {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 14px;
+	padding: 14px 16px;
+	border: 1.5px dashed var(--gx-outline);
+	border-radius: 12px;
+	transition: border-color 0.12s, background-color 0.12s;
+}
+
+.gx-drop.is-over {
+	border-color: var(--gx-primary);
+	background: color-mix(in srgb, var(--gx-primary-container) 40%, transparent);
+}
+
+.gx-drop .gx-btn {
+	flex: none;
+}
+
+.gx-drop .gx-muted {
+	flex: 1 1 220px;
+}
+
+.gx-chosen li {
+	flex-wrap: wrap;
+}
+
+.gx-chosen .gx-import-text {
+	flex: 1 1 180px;
+}
+
+.gx-chosen-id {
+	display: flex;
+	flex: 1 1 240px;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-size: 12px;
+	color: var(--gx-text-2);
+}
+
+.gx-chosen-foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px 16px;
+}
+
+.gx-chosen-foot p {
+	flex: 1 1 260px;
+}
+
+.gx-chosen-foot .gx-btn {
+	flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.gx-drop {
+		transition: none;
+	}
+}
+
+.gx-block-icon {
+	display: block;
+	flex: none;
+	width: 18px;
+	height: 18px;
+}
+
+.gx-chips li .gx-block-icon {
+	margin: -3px 0 -3px -2px;
+}
+
+.gx-import-text .gx-field-error {
+	font-size: 12.5px;
+}

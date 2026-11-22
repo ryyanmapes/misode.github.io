@@ -80,6 +80,8 @@ interface Props {
 	highlight?: boolean | number
 	/** Whether only what the decorator placed is drawn */
 	onlyMarked?: boolean
+	/** The position in the slice that is told as 0 0 0, for something that counts from a corner of its own */
+	origin?: [number, number, number]
 	/** Shown in place of the picture, for example why there is none */
 	message?: { title: string, text: string }
 	/** Shown while there is no slice yet */
@@ -90,7 +92,7 @@ interface Props {
 	children?: ComponentChildren
 }
 /** A piece of the world that can be turned around like a model */
-export function Diorama({ slice, version, label, dark, memo, revision, frameKey, focus, highlight = false, onlyMarked = false, message, loading, onDone, apiRef, children }: Props) {
+export function Diorama({ slice, version, label, dark, memo, revision, frameKey, focus, highlight = false, onlyMarked = false, origin, message, loading, onDone, apiRef, children }: Props) {
 	const [textures] = useStoredFlag(TEXTURES_KEY, true)
 	const [textured, setTextured] = useState<Textured | undefined>(() => {
 		const loaded = loadedTexturedLooks(version)
@@ -198,9 +200,9 @@ export function Diorama({ slice, version, label, dark, memo, revision, frameKey,
 		<div class="gx-view-pill gx-view-readout">
 			{hover
 				? <>
-					<span>X {hover.x}</span>
-					<span>Y {hover.y}</span>
-					<span>Z {hover.z}</span>
+					<span>X {hover.x - (origin?.[0] ?? 0)}</span>
+					<span>Y {hover.y - (origin?.[1] ?? 0)}</span>
+					<span>Z {hover.z - (origin?.[2] ?? 0)}</span>
 					<span class="gx-readout-value">
 						<span class="gx-swatch" style={{ background: blockCss(hover.name) }} />
 						{prettyId(hover.name).replace(/_/g, ' ')}

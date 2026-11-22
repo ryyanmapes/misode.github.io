@@ -6,6 +6,7 @@ import type { CustomDimension, ItemKind } from './dimensions.js'
 import { MAIN } from './dimensions.js'
 import { materialToJson } from './material/convert.js'
 import type { DimensionData } from './presets.js'
+import type { TemplateMeta } from './templates.js'
 import type { GDoc, GraphFormat } from './types.js'
 
 /**
@@ -20,19 +21,21 @@ export interface Own {
 	carvers: Record<string, unknown>
 	features: Record<string, unknown>
 	placers: Record<string, unknown>
+	/** Which file each template is, and what is known about it. The files themselves are kept apart. */
+	templates: Record<string, TemplateMeta>
 }
 
-const GROUPS = ['noises', 'densities', 'rules', 'carvers', 'features', 'placers'] as const
+const GROUPS = ['noises', 'densities', 'rules', 'carvers', 'templates', 'features', 'placers'] as const
 
 /** A dimension that brings nothing of its own */
-export const NO_OWN: Own = { noises: {}, densities: {}, rules: {}, carvers: {}, features: {}, placers: {} }
+export const NO_OWN: Own = { noises: {}, densities: {}, rules: {}, carvers: {}, templates: {}, features: {}, placers: {} }
 
 /** A dimension as it is stored: an example, or one of your own with the graphs that were changed */
 export type AnyDimension = DimensionData & Partial<Pick<CustomDimension, 'density' | 'material' | 'densityDocs' | 'ruleDocs'>>
 
 export const EMPTY_RULE = { type: 'minecraft:sequence', sequence: [] }
 
-const OWN_FIELD: Record<ItemKind, keyof Own> = { noise: 'noises', density: 'densities', material: 'rules', carver: 'carvers', feature: 'features', placer: 'placers' }
+const OWN_FIELD: Record<ItemKind, keyof Own> = { noise: 'noises', density: 'densities', material: 'rules', carver: 'carvers', template: 'templates', feature: 'features', placer: 'placers' }
 
 export function ownField(kind: ItemKind) {
 	return OWN_FIELD[kind]
@@ -45,6 +48,8 @@ export function registryOf(kind: ItemKind, format: GraphFormat) {
 		case 'density': return 'worldgen/density_function'
 		case 'material': return 'worldgen/material_rule'
 		case 'carver': return format === 'modern' ? 'worldgen/carver' : 'worldgen/configured_carver'
+		// The game calls a template a structure. Its files are in another folder than this before 1.21.
+		case 'template': return 'structure'
 		case 'feature': return format === 'modern' ? 'worldgen/feature' : 'worldgen/configured_feature'
 		case 'placer': return 'worldgen/placed_feature'
 	}
@@ -94,7 +99,7 @@ export function ownOf(data: AnyDimension, format: GraphFormat): Own {
 		const doc = data.ruleDocs?.[id]
 		rules[id] = doc ? ruleOf(doc) : json
 	}
-	return { noises: data.noises, densities, rules, carvers: data.carvers, features: data.features, placers: data.placers }
+	return { noises: data.noises, densities, rules, carvers: data.carvers, templates: data.templates, features: data.features, placers: data.placers }
 }
 
 /** Every text in a piece of JSON, which is where ids are */
@@ -261,7 +266,7 @@ export function freeItemId(wanted: string, taken: (id: string) => boolean) {
  * what it refers to is in the game, and stays there.
  */
 export function planImport(source: ItemSource, kind: ItemKind, item: string, here: Own, namespace: string): { id: string, add: Own } {
-	const add: Own = { noises: {}, densities: {}, rules: {}, carvers: {}, features: {}, placers: {} }
+	const add: Own = { noises: {}, densities: {}, rules: {}, carvers: {}, templates: {}, features: {}, placers: {} }
 	const field = OWN_FIELD[kind]
 	const root = item !== MAIN ? source.own[field][item] : kind === 'density' ? source.mainDensity : source.mainRule
 	const taken = (wanted: string) => wanted in here[field]

@@ -7,6 +7,8 @@ import type { ItemSource, Own } from './items.js'
 import { blankItem, copyId, countOwn, fetchVanillaItem, freeItemId, fullId, mainImportId, ownField, planImport, sourceOf } from './items.js'
 import type { GraphVersion } from './presets.js'
 import { isValidId, loadedPreset, loadPreset } from './presets.js'
+import { NewTemplates } from './TemplateImport.jsx'
+import { describeTemplate } from './templates.js'
 import { IconButton, prettyId, Select } from './ui.jsx'
 
 const BLANK = 'blank'
@@ -50,6 +52,8 @@ export interface ItemsHomeProps {
 	noun: string
 	/** What the list says below each one: what it is used for */
 	caption: string
+	/** What the list says below one of them instead, when there is something to tell them apart by */
+	captionOf?: (id: string) => string | undefined
 	/** The name that a new one is given when it does not start from anything */
 	base: string
 	icon: ComponentChildren
@@ -75,7 +79,7 @@ export interface ItemsHomeProps {
 }
 /** The home tab of a view: what the dimension has of it, and ways to add more */
 export function ItemsHome(props: ItemsHomeProps) {
-	const { title, intro, noun, caption, icon, main, items, editable, fromGame, onOpen, onDelete } = props
+	const { kind, title, intro, noun, caption, captionOf, icon, main, items, editable, fromGame, onOpen, onDelete } = props
 	const [confirming, setConfirming] = useState<string>()
 	const [query, setQuery] = useState('')
 	const shown = matching(items, id => id, query)
@@ -109,7 +113,7 @@ export function ItemsHome(props: ItemsHomeProps) {
 							<span class="gx-dim-icon gx-item-icon">{icon}</span>
 							<span class="gx-dim-text">
 								<strong>{id}</strong>
-								<span>{caption}</span>
+								<span>{captionOf?.(id) ?? caption}</span>
 							</span>
 						</button>
 						{editable && (confirming === id
@@ -138,7 +142,9 @@ export function ItemsHome(props: ItemsHomeProps) {
 
 			{editable
 				? <>
-					<NewItem {...props} />
+					{kind === 'template'
+						? <NewTemplates version={props.version} dimensionId={props.dimensionId} here={props.here.templates} vanilla={props.vanilla} onCreate={props.onCreate} />
+						: <NewItem {...props} />}
 					<ImportItems {...props} />
 				</>
 				: <p class="gx-muted">Examples cannot be changed. Make a dimension of your own on the home tab at the top to add {noun}s, or to bring these over.</p>}
@@ -270,9 +276,9 @@ function ImportItems({ kind, version, tab, dimensionId, noun, main, here, onImpo
 	const loaded = source.of === current ? source : undefined
 	const other = loaded?.value
 	const rows = other ? [
-		...(main ? [{ item: MAIN, label: `${main.label} of ${other.id}`, as: mainImportId(other.id, kind) }] : []),
+		...(main ? [{ item: MAIN, label: `${main.label} of ${other.id}`, as: mainImportId(other.id, kind), about: undefined as string | undefined }] : []),
 		// Something of the game comes over as a copy under an id of this dimension, since its own id stays the game's
-		...Object.keys(other.own[field]).map(id => ({ item: id, label: id, as: other.fromGame ? copyId(id, namespace) : id })),
+		...Object.keys(other.own[field]).map(id => ({ item: id, label: id, as: other.fromGame ? copyId(id, namespace) : id, about: kind === 'template' ? describeTemplate(other.own.templates[id]) : undefined })),
 	] : []
 	const shown = matching(rows, row => row.label, query)
 
@@ -297,7 +303,7 @@ function ImportItems({ kind, version, tab, dimensionId, noun, main, here, onImpo
 						<strong class={row.item === MAIN ? 'gx-item-main' : 'gx-mono'}>{row.label}</strong>
 						<span class="gx-muted">
 							{present ? 'This dimension already has one with this id'
-								: `${plan!.id !== row.item ? `Becomes ${plan!.id}` : 'Keeps its id'}${extra > 0 ? `, and brings ${extra} thing${extra === 1 ? '' : 's'} that it refers to` : ''}`}
+								: `${row.about ? `${row.about}. ` : ''}${plan!.id !== row.item ? `Becomes ${plan!.id}` : 'Keeps its id'}${extra > 0 ? `, and brings ${extra} thing${extra === 1 ? '' : 's'} that it refers to` : ''}`}
 						</span>
 					</span>
 					<button type="button" class="gx-btn gx-btn-tonal" disabled={!plan} onClick={() => plan && onImport(plan.add, plan.id)}>

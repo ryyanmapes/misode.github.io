@@ -5,6 +5,7 @@ import { createCustom, customTabId, deleteCustom, exampleTabId, freeId, isIdTake
 import { Ico } from './icons.jsx'
 import type { GraphVersion } from './presets.js'
 import { blankDimension, fromTemplate, isValidId, loadPreset } from './presets.js'
+import { sweepTemplates } from './templates.js'
 import { IconButton, Select } from './ui.jsx'
 
 const BLANK = 'blank'
@@ -86,6 +87,8 @@ export function HomePage({ version }: { version: GraphVersion }) {
 										<span>Delete for good?</span>
 										<button type="button" class="gx-btn gx-btn-danger" onClick={() => {
 											deleteCustom(meta.key)
+											// The files of its templates go once no other dimension has them
+											void sweepTemplates()
 											setConfirming(undefined)
 										}}>
 											<span>Delete</span>

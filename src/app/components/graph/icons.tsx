@@ -7,6 +7,7 @@ function icon(children: ComponentChildren) {
 }
 
 export const Ico = {
+	template: icon(<><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" /><rect x="8.5" y="8.5" width="7" height="7" rx="1" /></>),
 	plus: icon(<path d="M12 5v14M5 12h14" />),
 	minus: icon(<path d="M5 12h14" />),
 	close: icon(<path d="M6 6l12 12M18 6 6 18" />),

@@ -67,11 +67,15 @@ export function loadVanillaFeatures(version: GraphVersion): Promise<VanillaFeatu
 
 const NO_BLOCKS: ReadonlySet<string> = new Set()
 
-/** What features can refer to in a dimension: its own features, placed features and carvers first, then those of the game. The temperature is the one of its biome. */
-export function featureDataOf(version: GraphVersion, game: VanillaFeatures, own: Pick<Own, 'features' | 'placers' | 'carvers'>, temperature?: number): FeatureData {
+/**
+ * What features can refer to in a dimension: its own features, placed features and carvers first, then those of the game.
+ * The temperature is the one of its biome. `template` gives the structure files that features place.
+ */
+export function featureDataOf(version: GraphVersion, game: VanillaFeatures, own: Pick<Own, 'features' | 'placers' | 'carvers'>, temperature?: number, template?: FeatureData['template']): FeatureData {
 	return {
 		format: version.format,
 		temperature,
+		template,
 		feature: id => own.features[fullId(id)] ?? game.features.get(fullId(id)),
 		placed: id => own.placers[fullId(id)] ?? game.placed.get(fullId(id)),
 		carver: id => own.carvers[fullId(id)] ?? game.carvers.get(fullId(id)),

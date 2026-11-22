@@ -140,6 +140,7 @@ export function loadCustom(key: string): CustomDimension | undefined {
 			decoration: Array.isArray(stored.decoration) ? stored.decoration.filter((id: unknown) => typeof id === 'string') : [],
 			carvers: stored.carvers ?? {},
 			carving: Array.isArray(stored.carving) ? stored.carving.filter((id: unknown) => typeof id === 'string') : [],
+			templates: Object.fromEntries(Object.entries(stored.templates ?? {}).filter(([, meta]) => typeof (meta as any)?.hash === 'string' && Array.isArray((meta as any).size))),
 			// Only the examples are dimensions of the game
 			fromGame: undefined,
 			densityDocs: docsOf(stored.densityDocs, 'output'),
@@ -300,10 +301,10 @@ export function writeTabs(tabs: string[]) {
 }
 
 /** The views of a dimension, which are the tabs below the dimension tabs */
-export type Sub = 'noise' | 'density' | 'material' | 'carver' | 'feature' | 'placer' | 'dimension' | 'view' | 'export'
+export type Sub = 'noise' | 'density' | 'material' | 'carver' | 'template' | 'feature' | 'placer' | 'dimension' | 'view' | 'export'
 
 /** The part of the address that opens each view */
-export const SLUGS: Record<Sub, string> = { noise: 'noise', density: 'densities', material: 'material-rules', carver: 'carvers', feature: 'features', placer: 'placers', dimension: 'dimension', view: 'view', export: 'export' }
+export const SLUGS: Record<Sub, string> = { noise: 'noise', density: 'densities', material: 'material-rules', carver: 'carvers', template: 'templates', feature: 'features', placer: 'placers', dimension: 'dimension', view: 'view', export: 'export' }
 
 /** What the views were called before a dimension could have more than one density function and rule */
 const OLD_SLUGS: Record<string, Sub> = { 'final-density': 'density', 'material-rule': 'material' }
@@ -314,7 +315,7 @@ export function subOfSlug(slug: string | undefined): Sub | undefined {
 }
 
 /** The views in which a dimension has several things that each open in a tab of their own */
-export type ItemKind = 'noise' | 'density' | 'material' | 'carver' | 'feature' | 'placer'
+export type ItemKind = 'noise' | 'density' | 'material' | 'carver' | 'template' | 'feature' | 'placer'
 
 /** Stands for the final density or the rule of the noise settings, which every dimension has and which have no id of their own */
 export const MAIN = ''
@@ -343,6 +344,7 @@ export function readItemTabs(tabId: string): ItemTabState {
 		density: itemTabs(stored?.density, { open: [MAIN], active: MAIN }),
 		material: itemTabs(stored?.material, { open: [MAIN], active: MAIN }),
 		carver: itemTabs(stored?.carver, { open: [], active: null }),
+		template: itemTabs(stored?.template, { open: [], active: null }),
 		feature: itemTabs(stored?.feature, { open: [], active: null }),
 		placer: itemTabs(stored?.placer, { open: [], active: null }),
 	}

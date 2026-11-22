@@ -29,6 +29,8 @@ import { adoptBiome, biomeOf, fetchGameBiome, findVersion, GRAPH_VERSIONS, loade
 import { dropSession, sessionObject, useSessionState } from '../components/graph/session.js'
 import { GraphStore, useStore, useStructure } from '../components/graph/store.js'
 import { TabStrip } from '../components/graph/TabStrip.jsx'
+import { describeTemplate, sweepTemplates, templateSource, useTemplateLoads } from '../components/graph/templates.js'
+import { TemplateViewer } from '../components/graph/TemplateViewer.jsx'
 import type { GDoc, GraphFormat, HeightRange, PreviewBounds, ViewOptions } from '../components/graph/types.js'
 import { IconButton, Select, useStoredFlag } from '../components/graph/ui.jsx'
 import { featureDataOf, loadVanillaFeatures } from '../components/graph/view/decorate.js'
@@ -306,6 +308,7 @@ const SUB_TABS: { sub: Sub, label: (rule: string) => string, icon: keyof typeof 
 	{ sub: 'density', label: () => 'Densities', icon: 'graph' },
 	{ sub: 'material', label: rule => `${titleOf(rule)}s`, icon: 'flow' },
 	{ sub: 'carver', label: () => 'Carvers', icon: 'cave' },
+	{ sub: 'template', label: () => 'Templates', icon: 'template' },
 	{ sub: 'feature', label: () => 'Features', icon: 'tree' },
 	{ sub: 'placer', label: () => 'Placers', icon: 'scatter' },
 	{ sub: 'dimension', label: () => 'Dimension', icon: 'globe' },
@@ -346,7 +349,7 @@ interface TabSession {
 }
 
 /** Where the record of a dimension keeps each kind of thing */
-const FIELD = { noise: 'noises', density: 'densityFunctions', material: 'rules', carver: 'carvers', feature: 'features', placer: 'placers' } as const
+const FIELD = { noise: 'noises', density: 'densityFunctions', material: 'rules', carver: 'carvers', template: 'templates', feature: 'features', placer: 'placers' } as const
 
 /** How each kind of thing is called and explained */
 function describeKind(kind: ItemKind, format: GraphFormat, versionLabel: string) {
@@ -374,6 +377,11 @@ function describeKind(kind: ItemKind, format: GraphFormat, versionLabel: string)
 			caption: 'Cuts caves or canyons out of the terrain',
 			intro: `A carver cuts caves or canyons out of the terrain after it is shaped, and before features are placed on it.${format === 'modern' ? '' : ` Minecraft ${versionLabel} calls it a configured carver.`} A carver does nothing by itself. A dimension uses the carvers that are in the list on its Dimension tab.`,
 		}
+		case 'template': return {
+			noun: 'template', title: 'Templates', icon: 'template' as const, base: 'template', open: 'Open templates',
+			caption: 'A build that was saved as a structure file',
+			intro: `A template is something that was built in the game and saved with a structure block: its blocks, together with what is inside of them, such as the items of a chest or the command of a command block. Templates are made in the game and only looked at here.${format === 'modern' ? ' A feature of the type Template places one.' : ` Minecraft ${versionLabel} has no feature that places a template, so here they are only put in the data pack.`}`,
+		}
 		case 'feature': return {
 			noun: 'feature', title: 'Features', icon: 'tree' as const, base: 'feature', open: 'Open features',
 			caption: 'Generated where a placer puts it',
@@ -395,7 +403,7 @@ function without<T>(items: Record<string, T> | undefined, id: string): Record<st
 }
 
 function isItemKind(sub: Sub): sub is ItemKind {
-	return sub === 'noise' || sub === 'density' || sub === 'material' || sub === 'carver' || sub === 'feature' || sub === 'placer'
+	return sub === 'noise' || sub === 'density' || sub === 'material' || sub === 'carver' || sub === 'template' || sub === 'feature' || sub === 'placer'
 }
 
 /** Remembers a graph a moment after it was changed, and right away when it is left */
@@ -528,7 +536,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 
 	// References to the noises, density functions and rules of the dimension only work once they are registered.
 	// What an editor shows does not depend on the thing that it edits, so changing that does not compute everything again.
-	const own = useMemo(() => ownOf(data, format), [data.noises, data.densityFunctions, data.rules, data.carvers, data.features, data.placers, custom?.densityDocs, custom?.ruleDocs, format])
+	const own = useMemo(() => ownOf(data, format), [data.noises, data.densityFunctions, data.rules, data.carvers, data.templates, data.features, data.placers, custom?.densityDocs, custom?.ruleDocs, format])
 	// What a dimension of the game lists is what the game has, which is registered already
 	const versions = useMemo(() => env ? registerOwn(env, data.fromGame ? NO_OWN : own) : undefined, [env, own, data.fromGame])
 	const editedKey = graph === 'density' && activeItem ? `density:${activeItem}` : graph === 'material' && activeItem ? `rule:${activeItem}` : undefined
@@ -650,7 +658,10 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 	// Whether water freezes and snow falls follows the temperature of the biome of the dimension
 	const biomeTemperature = biomeOf(data).file?.temperature
 	const temperature = typeof biomeTemperature === 'number' ? biomeTemperature : undefined
-	const features = useMemo(() => game ? featureDataOf(version, game, own, temperature) : undefined, [game, own, version, temperature])
+	// The files of templates are read when a preview first asks for them, after which the previews are made again
+	const templateLoads = useTemplateLoads()
+	const templateIds = vanillaIds?.get(registryOf('template', format))
+	const features = useMemo(() => game ? featureDataOf(version, game, own, temperature, templateSource(version, own.templates, templateIds)) : undefined, [game, own, version, temperature, templateIds, templateLoads])
 	const ruleText = JSON.stringify(materialToJson(materialStore.doc))
 	const terrain = useMemo<TerrainInput>(() => ({ version, env: worldgen, settings: settingsText, rule: ruleText, seed, biome: gameBiome }), [version, worldgen, settingsText, ruleText, seed, gameBiome])
 	const placerIds = useMemo(() => [
@@ -668,7 +679,9 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 	const known = useMemo(() => game ? {
 		[registryOf('feature', format)]: [...Object.keys(data.features), ...[...game.features.keys()].filter(id => !(id in data.features)).sort()],
 		[registryOf('placer', format)]: placerIds,
-	} : undefined, [game, data.features, placerIds, format])
+		// A feature can place a template of the dimension, or one of the game
+		[registryOf('template', format)]: [...Object.keys(data.templates), ...(vanillaIds?.get(registryOf('template', format)) ?? []).filter(id => !(id in data.templates))],
+	} : undefined, [game, data.features, data.templates, placerIds, vanillaIds, format])
 
 	if (sub === 'dimension') {
 		return <DimensionEditor version={version} data={data} custom={custom} placerIds={placerIds} carverIds={carverIds} features={features} featuresError={gameError?.message}
@@ -704,10 +717,13 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 					: kind === 'material' ? { rules: without(record.rules, id), ruleDocs: without(record.ruleDocs, id) }
 						// A carver or placer that is deleted is also no longer used by the dimension
 						: kind === 'carver' ? { carvers: without(record.carvers, id), carving: record.carving.filter(other => other !== id) }
-							: kind === 'feature' ? { features: without(record.features, id) }
-								: { placers: without(record.placers, id), decoration: record.decoration.filter(other => other !== id) }
+							: kind === 'template' ? { templates: without(record.templates, id) }
+								: kind === 'feature' ? { features: without(record.features, id) }
+									: { placers: without(record.placers, id), decoration: record.decoration.filter(other => other !== id) }
 		})
 		closeItem(id)
+		// The file of a template goes once no dimension has it any more
+		if (kind === 'template') void sweepTemplates()
 	}
 	const bringOver = (add: Own, id: string) => {
 		if (customKey === undefined) return
@@ -716,6 +732,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 			densityFunctions: { ...record.densityFunctions, ...add.densities },
 			rules: { ...record.rules, ...add.rules },
 			carvers: { ...record.carvers, ...add.carvers },
+			templates: { ...record.templates, ...add.templates },
 			features: { ...record.features, ...add.features },
 			placers: { ...record.placers, ...add.placers },
 		}))
@@ -730,7 +747,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 		return <>
 			{strip}
 			<ItemsHome kind={kind} version={version} tab={tab} dimensionId={data.id} noun={info.noun} icon={icon} editable={editable} fromGame={data.fromGame === true}
-				title={info.title} intro={info.intro} caption={info.caption} base={info.base} main={info.main}
+				title={info.title} intro={info.intro} caption={info.caption} captionOf={kind === 'template' ? id => describeTemplate(data.templates[id]) : undefined} base={info.base} main={info.main}
 				items={idsOf(kind)} here={own} mainJson={kind === 'density' ? densityToJson(densityStore.doc, schema) : materialToJson(materialStore.doc)}
 				vanilla={ofGame} onOpen={openItem} onCreate={create} onDelete={remove} onImport={bringOver} />
 		</>
@@ -743,25 +760,27 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 		{kind === 'noise'
 			? <NoiseEditor key={viewKey} id={activeItem} json={data.noises[activeItem]} format={format} editable={editable} env={worldgen} shape={shape} seed={seed} onNewSeed={newSeed}
 				onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ noises: { ...record.noises, [activeItem]: json } }))} />
-			: kind === 'carver'
-				? <CarverEditor key={viewKey} id={activeItem} json={data.carvers[activeItem]} version={version} editable={editable} used={data.carving.includes(activeItem)}
-					data={features} dataError={gameError?.message} terrain={terrain} memory={session.terrain} dark={dark}
-					onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ carvers: { ...record.carvers, [activeItem]: json } }))} />
-				: kind === 'feature'
-					? <FeatureEditor key={viewKey} id={activeItem} json={data.features[activeItem]} version={version} editable={editable} data={features} dataError={gameError?.message} blocks={vanillaIds?.get('block')} known={known}
-						dark={dark} camera={cameraOf(session.terrain, `feature:${activeItem}`)}
-						onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ features: { ...record.features, [activeItem]: json } }))} />
-					: kind === 'placer'
-						? <PlacerEditor key={viewKey} id={activeItem} json={data.placers[activeItem]} version={version} editable={editable} data={features} dataError={gameError?.message} known={known} carving={data.carving}
-							terrain={terrain} memory={session.terrain} dark={dark}
-							onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ placers: { ...record.placers, [activeItem]: json } }))} />
-						: kind === 'density'
-							? <DensityEditor key={viewKey} store={activeStore!} schema={activeItem === MAIN ? schema : namedSchema} format={format} env={worldgen} registries={registries}
-								name={activeItem === MAIN ? 'final density' : activeItem} shape={shape} seed={seed} onNewSeed={newSeed}
-								preset={activeItem === MAIN ? finalDensity : data.densityFunctions[activeItem]} resetLabel={resetLabel}
-								options={options} onOptions={changeOptions} bounds={bounds} viewMemo={viewOf(viewKey)} />
-							: <MaterialEditor key={viewKey} store={activeStore!} format={format} env={worldgen} registries={registries} ruleId={activeItem === MAIN ? undefined : activeItem}
-								settings={settingsText} seed={seed} onNewSeed={newSeed} preset={activeItem === MAIN ? rule : data.rules[activeItem]} resetLabel={resetLabel}
-								defaultBiome={data.biomes[0]} options={options} onOptions={changeOptions} bounds={bounds} dark={dark} viewMemo={viewOf(viewKey)} />}
+			: kind === 'template'
+				? <TemplateViewer key={viewKey} id={activeItem} meta={data.templates[activeItem]} version={version} dark={dark} camera={cameraOf(session.terrain, `template:${activeItem}`)} />
+				: kind === 'carver'
+					? <CarverEditor key={viewKey} id={activeItem} json={data.carvers[activeItem]} version={version} editable={editable} used={data.carving.includes(activeItem)}
+						data={features} dataError={gameError?.message} terrain={terrain} memory={session.terrain} dark={dark}
+						onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ carvers: { ...record.carvers, [activeItem]: json } }))} />
+					: kind === 'feature'
+						? <FeatureEditor key={viewKey} id={activeItem} json={data.features[activeItem]} version={version} editable={editable} data={features} dataError={gameError?.message} blocks={vanillaIds?.get('block')} known={known}
+							dark={dark} camera={cameraOf(session.terrain, `feature:${activeItem}`)}
+							onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ features: { ...record.features, [activeItem]: json } }))} />
+						: kind === 'placer'
+							? <PlacerEditor key={viewKey} id={activeItem} json={data.placers[activeItem]} version={version} editable={editable} data={features} dataError={gameError?.message} known={known} carving={data.carving}
+								terrain={terrain} memory={session.terrain} dark={dark}
+								onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ placers: { ...record.placers, [activeItem]: json } }))} />
+							: kind === 'density'
+								? <DensityEditor key={viewKey} store={activeStore!} schema={activeItem === MAIN ? schema : namedSchema} format={format} env={worldgen} registries={registries}
+									name={activeItem === MAIN ? 'final density' : activeItem} shape={shape} seed={seed} onNewSeed={newSeed}
+									preset={activeItem === MAIN ? finalDensity : data.densityFunctions[activeItem]} resetLabel={resetLabel}
+									options={options} onOptions={changeOptions} bounds={bounds} viewMemo={viewOf(viewKey)} />
+								: <MaterialEditor key={viewKey} store={activeStore!} format={format} env={worldgen} registries={registries} ruleId={activeItem === MAIN ? undefined : activeItem}
+									settings={settingsText} seed={seed} onNewSeed={newSeed} preset={activeItem === MAIN ? rule : data.rules[activeItem]} resetLabel={resetLabel}
+									defaultBiome={data.biomes[0]} options={options} onOptions={changeOptions} bounds={bounds} dark={dark} viewMemo={viewOf(viewKey)} />}
 	</>
 }
