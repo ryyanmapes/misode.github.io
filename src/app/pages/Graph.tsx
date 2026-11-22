@@ -16,7 +16,7 @@ import type { ViewMemo } from '../components/graph/GraphCanvas.jsx'
 import { HomePage } from '../components/graph/HomePage.jsx'
 import { Ico } from '../components/graph/icons.jsx'
 import type { Own } from '../components/graph/items.js'
-import { circularFor, freeItemId, NO_OWN, ownOf, registryOf } from '../components/graph/items.js'
+import { circularFor, freeItemId, NO_OWN, ownOf, registryOf, typeRegistryOf } from '../components/graph/items.js'
 import { ItemsHome } from '../components/graph/ItemsHome.jsx'
 import { ItemTabs } from '../components/graph/ItemTabs.jsx'
 import { materialFromJson, materialToJson, upgradeMaterial } from '../components/graph/material/convert.js'
@@ -798,7 +798,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 			<ItemsHome kind={kind} version={version} tab={tab} dimensionId={data.id} noun={info.noun} icon={icon} editable={editable} fromGame={data.fromGame === true}
 				title={info.title} intro={info.intro} caption={info.caption} captionOf={kind === 'template' ? id => describeTemplate(data.templates[id]) : undefined} base={info.base} main={info.main}
 				items={idsOf(kind)} here={own} mainJson={kind === 'density' ? densityToJson(densityStore.doc, schema) : materialToJson(materialStore.doc)}
-				vanilla={ofGame} onOpen={openItem} onCreate={create} onDelete={remove} onImport={bringOver}
+				vanilla={ofGame} types={vanillaIds?.get(typeRegistryOf(kind, format) ?? '')} onOpen={openItem} onCreate={create} onDelete={remove} onImport={bringOver}
 				onRename={editable ? rename : undefined} onMove={editable ? move : undefined} onDuplicate={editable ? duplicate : undefined} />
 		</>
 	}

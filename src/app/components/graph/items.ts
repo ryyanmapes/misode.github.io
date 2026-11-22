@@ -55,6 +55,20 @@ export function registryOf(kind: ItemKind, format: GraphFormat) {
 	}
 }
 
+/**
+ * The registry of the game that lists the types that a kind of thing can have, for the kinds that have a type.
+ * 26.3 gave these registries names of their own. Before that they had the names that the things themselves have now.
+ */
+export function typeRegistryOf(kind: ItemKind, format: GraphFormat): string | undefined {
+	switch (kind) {
+		case 'density': return 'worldgen/density_function_type'
+		case 'material': return format === 'modern' ? 'worldgen/material_rule_type' : 'worldgen/material_rule'
+		case 'carver': return format === 'modern' ? 'worldgen/carver_type' : 'worldgen/carver'
+		case 'feature': return format === 'modern' ? 'worldgen/feature_type' : 'worldgen/feature'
+		default: return undefined
+	}
+}
+
 export function fullId(id: string) {
 	return id.includes(':') ? id : `minecraft:${id}`
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { VersionId } from '../../services/index.js'
 import { fetchVersions } from '../../services/index.js'
 import { blockPicture, loadedBlockPicture } from './blockPicture.js'
+import { saveFile } from './download.js'
 import { Ico } from './icons.jsx'
 import { blockCss } from './material/blocks.js'
 import type { GraphVersion } from './presets.js'
@@ -107,14 +108,7 @@ export function TemplateViewer({ id, meta, version, dark, camera }: Props) {
 	const download = async () => {
 		const bytes = await templateBytes(meta.hash)
 		if (!bytes) return
-		const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }))
-		const link = document.createElement('a')
-		link.href = url
-		link.download = path.slice(path.lastIndexOf('/') + 1)
-		document.body.appendChild(link)
-		link.click()
-		link.remove()
-		URL.revokeObjectURL(url)
+		saveFile(path.slice(path.lastIndexOf('/') + 1), new Blob([bytes], { type: 'application/octet-stream' }))
 	}
 
 	const empty = template !== undefined && template.blocks === 0

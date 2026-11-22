@@ -2,13 +2,16 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { ItemKind, TabRef } from './dimensions.js'
 import { customTabId, exampleTabId, loadCustom, MAIN, resolveTab, useCustomList } from './dimensions.js'
+import { fileNameOf, saveFile, saveJson } from './download.js'
 import { Ico } from './icons.jsx'
 import type { ItemSource, Own } from './items.js'
 import { blankItem, copyId, countOwn, fetchVanillaItem, freeItemId, fullId, mainImportId, ownField, planImport, sourceOf } from './items.js'
 import type { GraphVersion } from './presets.js'
 import { isValidId, loadedPreset, loadPreset } from './presets.js'
+import { JsonImport } from './JsonImport.jsx'
+import { ruleName } from './material/schema.js'
 import { NewTemplates } from './TemplateImport.jsx'
-import { describeTemplate } from './templates.js'
+import { describeTemplate, templateBytes } from './templates.js'
 import { SortableList } from './SortableList.jsx'
 import { IconButton, prettyId, Select } from './ui.jsx'
 
@@ -72,6 +75,8 @@ export interface ItemsHomeProps {
 	mainJson: unknown
 	/** The ids that the game has, which something new can start from and cannot be called */
 	vanilla: string[]
+	/** The types that the game has for this kind of thing, to tell the files of another kind by */
+	types?: string[]
 	onOpen: (id: string) => void
 	onCreate: (id: string, json: unknown) => void
 	onDelete: (id: string) => void
@@ -145,6 +150,17 @@ export function ItemsHome(props: ItemsHomeProps) {
 	const shown = matching(items, id => id, query)
 	const sortable = editable && onMove !== undefined && query.trim() === '' && items.length > 1
 	const field = ownField(kind)
+	// Saves one of them as the file that it is in a data pack. The final density and the rule of the dimension are saved as they are now.
+	const save = async (id: string) => {
+		if (kind === 'template') {
+			const bytes = await templateBytes(props.here.templates[id].hash)
+			if (bytes) saveFile(fileNameOf(id, '.nbt'), new Blob([bytes], { type: 'application/octet-stream' }))
+		} else if (id === MAIN) {
+			saveJson(`${kind === 'density' ? 'final_density' : ruleName(props.version.format).replace(/ /g, '_')}.json`, props.mainJson)
+		} else {
+			saveJson(fileNameOf(id, '.json'), props.here[field][id])
+		}
+	}
 	const renameProblem = (id: string, typed: string) => {
 		const name = typed.trim()
 		const to = `${prefixOf(id)}${name}`
@@ -182,6 +198,9 @@ export function ItemsHome(props: ItemsHomeProps) {
 							</span>
 						</button>
 						<span class="gx-item-note" title={'Every dimension has one, so it cannot be deleted, renamed or moved'}>{Ico.lock}<span>Always there</span></span>
+						<div class="gx-dim-actions">
+							<IconButton icon={Ico.download} label={`Save the ${main.label.toLowerCase()} as a JSON file`} tipSide="left" onClick={() => save(MAIN)} />
+						</div>
 					</li>}
 					render={id => renaming?.id === id
 						? <RenameRow id={id} name={renaming.name} icon={icon} noun={noun} problem={renameProblem(id, renaming.name)}
@@ -200,7 +219,7 @@ export function ItemsHome(props: ItemsHomeProps) {
 									<span>{captionOf?.(id) ?? caption}</span>
 								</span>
 							</button>
-							{editable && (confirming === id
+							{editable && confirming === id
 								? <div class="gx-dim-confirm" role="group" aria-label={`Delete ${id}?`}>
 									<span>Delete for good?</span>
 									<button type="button" class="gx-btn gx-btn-danger" onClick={() => {
@@ -214,17 +233,18 @@ export function ItemsHome(props: ItemsHomeProps) {
 									</button>
 								</div>
 								: <div class="gx-dim-actions">
-									{onRename && <IconButton icon={Ico.edit} label={`Rename ${id}`} tipSide="left" onClick={() => {
+									<IconButton icon={Ico.download} label={`Save ${id} as a ${kind === 'template' ? 'structure' : 'JSON'} file`} tipSide="left" onClick={() => save(id)} />
+									{editable && onRename && <IconButton icon={Ico.edit} label={`Rename ${id}`} tipSide="left" onClick={() => {
 										setConfirming(undefined)
 										setRenaming({ id, name: id.slice(prefixOf(id).length) })
 									}} />}
-									{onDuplicate && <IconButton icon={Ico.duplicate} label={`Duplicate ${id}`} tipSide="left" onClick={() => {
+									{editable && onDuplicate && <IconButton icon={Ico.duplicate} label={`Duplicate ${id}`} tipSide="left" onClick={() => {
 										const copy = onDuplicate(id)
 										// A copy is named right away, since it starts with the name of what it copies
 										if (copy !== undefined) setRenaming({ id: copy, name: copy.slice(prefixOf(copy).length) })
 									}} />}
-									<IconButton icon={Ico.trash} label={`Delete ${id}`} tipSide="left" onClick={() => setConfirming(id)} />
-								</div>)}
+									{editable && <IconButton icon={Ico.trash} label={`Delete ${id}`} tipSide="left" onClick={() => setConfirming(id)} />}
+								</div>}
 						</>} />
 				: <p class="gx-home-empty">{editable
 					? `This dimension has no ${noun}s of its own yet. It can use the ones of the game, or you can add one below.`
@@ -236,7 +256,10 @@ export function ItemsHome(props: ItemsHomeProps) {
 				? <>
 					{kind === 'template'
 						? <NewTemplates version={props.version} dimensionId={props.dimensionId} here={props.here.templates} vanilla={props.vanilla} onCreate={props.onCreate} />
-						: <NewItem {...props} />}
+						: <>
+							<NewItem {...props} />
+							<JsonImport kind={kind} version={props.version} dimensionId={props.dimensionId} noun={noun} here={props.here[field]} vanilla={props.vanilla} types={props.types} onCreate={props.onCreate} />
+						</>}
 					<ImportItems {...props} />
 				</>
 				: <p class="gx-muted">Examples cannot be changed. Make a dimension of your own on the home tab at the top to add {noun}s, or to bring these over.</p>}
