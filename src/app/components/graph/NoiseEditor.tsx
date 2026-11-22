@@ -219,7 +219,7 @@ function NoisePreview({ id, json, env, shape, seed, onNewSeed }: PreviewProps) {
 				<Select label="Blocks per pixel of the preview" class="gx-select-compact" value={String(zoom)} onChange={value => setZoom(Number(value))}
 					options={ZOOMS.map(z => ({ value: String(z), label: String(z) }))} />
 			</label>
-			<IconButton icon={Ico.dice} label="New random seed" tipSide="left" onClick={onNewSeed} />
+			<IconButton icon={Ico.seed} label="New random seed" tipSide="left" onClick={onNewSeed} />
 		</div>
 		<div class="gx-noise-canvas">
 			<canvas ref={canvas} width={PREVIEW} height={PREVIEW} role="img" aria-label={`${id} seen from above, ${span} by ${span} blocks`} />

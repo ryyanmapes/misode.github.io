@@ -283,7 +283,7 @@ export function ViewEditor({ version, tabKey, label, editable, defaultBiome, env
 							? `The terrain after the final density and the ${name}, with the carvers and placed features of the dimension`
 							: `The terrain after the final density and the ${name}`}</p>
 					</div>
-					<IconButton icon={Ico.dice} label="New random seed" tipSide="left" onClick={onNewSeed} />
+					<IconButton icon={Ico.seed} label="New random seed" tipSide="left" onClick={onNewSeed} />
 					<IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />
 				</div>
 				<Section title="Camera">

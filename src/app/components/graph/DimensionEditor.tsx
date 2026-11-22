@@ -61,9 +61,11 @@ interface Props {
 	terrain: TerrainInput
 	memory: TerrainMemory
 	dark: boolean
+	/** Gives the world another seed, which makes other terrain */
+	onNewSeed: () => void
 }
 /** The basic facts of a dimension: what it is called, how high it is, and its biome with the carvers and placed features of that */
-export function DimensionEditor({ version, data, custom, placerIds, carverIds, features, featuresError, terrain: terrainInput, memory, dark }: Props) {
+export function DimensionEditor({ version, data, custom, placerIds, carverIds, features, featuresError, terrain: terrainInput, memory, dark, onNewSeed }: Props) {
 	const editable = custom !== undefined
 	const [seed, setSeed] = useSessionState('placer.seed', BigInt(1))
 	// The carver or placed feature of the lists that is selected, which is the one that shows through the ground
@@ -365,7 +367,11 @@ export function DimensionEditor({ version, data, custom, placerIds, carverIds, f
 						<h2>Preview</h2>
 						<p>{TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of {data.id}, with its carvers and placed features</p>
 					</div>
-					<IconButton icon={Ico.dice} label="Place the features again at random" tipSide="left" onClick={() => setSeed(randomSeed())} />
+					<IconButton icon={Ico.dice} label="Place the features again, on the same terrain" tipSide="left" onClick={() => setSeed(randomSeed())} />
+					<IconButton icon={Ico.seed} label="New seed, with other terrain" tipSide="left" onClick={() => {
+						onNewSeed()
+						setSeed(randomSeed())
+					}} />
 					<IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />
 				</div>
 				<div class="gx-diorama-frame">

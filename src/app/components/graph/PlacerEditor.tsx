@@ -142,10 +142,12 @@ interface Props {
 	terrain: TerrainInput
 	memory: TerrainMemory
 	dark: boolean
+	/** Gives the world another seed, which makes other terrain */
+	onNewSeed: () => void
 	onChange: (json: unknown) => void
 }
 /** A placed feature as the form of this site, next to where it places its feature on the terrain of the dimension */
-export function PlacerEditor({ id, json, version, editable, data, dataError, known, carving, terrain, memory, dark, onChange }: Props) {
+export function PlacerEditor({ id, json, version, editable, data, dataError, known, carving, terrain, memory, dark, onNewSeed, onChange }: Props) {
 	const [seed, setSeed] = useSessionState('placer.seed', BigInt(1))
 	const [mode, setMode] = useSessionState<Mode>('placer.mode', 'map')
 	const [highlight, setHighlight] = useSessionState('placer.highlight', true)
@@ -183,7 +185,11 @@ export function PlacerEditor({ id, json, version, editable, data, dataError, kno
 						<h2>Placement</h2>
 						<p>Where {id} places its feature in {TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of the dimension</p>
 					</div>
-					<IconButton icon={Ico.dice} label="Place again at random" tipSide="left" onClick={() => setSeed(randomSeed())} />
+					<IconButton icon={Ico.dice} label="Place again, on the same terrain" tipSide="left" onClick={() => setSeed(randomSeed())} />
+					<IconButton icon={Ico.seed} label="New seed, with other terrain" tipSide="left" onClick={() => {
+						onNewSeed()
+						setSeed(randomSeed())
+					}} />
 					{mode === '3d' && <IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />}
 				</div>
 				<div class="gx-diorama-frame">

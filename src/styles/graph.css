@@ -4040,3 +4040,117 @@ main.gx {
 .gx-import-text .gx-field-error {
 	font-size: 12.5px;
 }
+
+/* === The lists of the home tabs, whose rows are renamed, copied and moved === */
+
+.gx-item-sort {
+	border-radius: 16px;
+	background: var(--gx-surface);
+}
+
+.gx-item-sort .gx-sort-row {
+	gap: 4px;
+	min-height: 60px;
+	padding: 0 12px 0 6px;
+}
+
+.gx-item-sort .gx-sort-row:first-child {
+	border-radius: 16px 16px 0 0;
+}
+
+.gx-item-sort .gx-sort-row:last-child {
+	border-radius: 0 0 16px 16px;
+}
+
+.gx-item-sort .gx-sort-row:only-child {
+	border-radius: 16px;
+}
+
+.gx-item-sort .gx-dim-open {
+	padding: 8px 10px 8px 8px;
+	border-radius: 10px;
+}
+
+/* The row that cannot be moved lines up with the ones that can */
+.gx-sort-space {
+	flex: none;
+	width: 28px;
+}
+
+.gx-rename {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	flex: 1;
+	min-width: 0;
+	padding: 12px 0 12px 8px;
+}
+
+.gx-rename .gx-btn {
+	flex: none;
+}
+
+.gx-rename-main {
+	display: grid;
+	gap: 4px;
+	flex: 1;
+	min-width: 0;
+	margin-left: 4px;
+}
+
+/* A text field that starts with the part of the id that stays */
+.gx-rename-field {
+	display: flex;
+	align-items: center;
+	height: 36px;
+	border: 1px solid var(--gx-outline);
+	border-radius: 8px;
+	transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.gx-rename-field:focus-within {
+	border-color: var(--gx-primary);
+	box-shadow: 0 0 0 1px var(--gx-primary);
+}
+
+.gx-rename-field.is-invalid {
+	border-color: var(--gx-danger);
+	box-shadow: 0 0 0 1px var(--gx-danger);
+}
+
+.gx-rename-prefix {
+	flex: none;
+	padding-left: 10px;
+	color: var(--gx-text-3);
+	font-size: 13px;
+	white-space: nowrap;
+	user-select: none;
+}
+
+.gx .gx-rename-field input {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	padding: 0 10px 0 0;
+	border: 0;
+	background: none;
+	color: var(--gx-text);
+	font-size: 13px;
+	outline: none;
+}
+
+@media (max-width: 700px) {
+	.gx-rename {
+		flex-wrap: wrap;
+	}
+
+	.gx-rename-main {
+		flex-basis: calc(100% - 60px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.gx-rename-field {
+		transition: none;
+	}
+}

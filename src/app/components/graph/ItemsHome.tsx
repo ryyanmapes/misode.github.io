@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import type { ItemKind, TabRef } from './dimensions.js'
 import { customTabId, exampleTabId, loadCustom, MAIN, resolveTab, useCustomList } from './dimensions.js'
 import { Ico } from './icons.jsx'
@@ -9,6 +9,7 @@ import type { GraphVersion } from './presets.js'
 import { isValidId, loadedPreset, loadPreset } from './presets.js'
 import { NewTemplates } from './TemplateImport.jsx'
 import { describeTemplate } from './templates.js'
+import { SortableList } from './SortableList.jsx'
 import { IconButton, prettyId, Select } from './ui.jsx'
 
 const BLANK = 'blank'
@@ -74,15 +75,85 @@ export interface ItemsHomeProps {
 	onOpen: (id: string) => void
 	onCreate: (id: string, json: unknown) => void
 	onDelete: (id: string) => void
+	/** Gives one another id. Both are whole ids, and the part before the colon is the same. */
+	onRename?: (id: string, to: string) => void
+	/** Puts the one at the place `from` of the list at the place `to` */
+	onMove?: (from: number, to: number) => void
+	/** Makes a copy of one right after it, and tells the id of the copy */
+	onDuplicate?: (id: string) => string | undefined
 	/** Adds what was planned to bring over from another dimension, and opens the thing with this id */
 	onImport: (add: Own, id: string) => void
 }
+
+/** The part of an id that stays when it is renamed: its namespace with the colon */
+function prefixOf(id: string) {
+	return id.slice(0, id.indexOf(':') + 1)
+}
+
+/** What a name looks like: the part of an id after the colon */
+const NAME_PATTERN = /^[a-z0-9_.-]+(\/[a-z0-9_.-]+)*$/
+
+interface RenameRowProps {
+	id: string
+	/** The name as it is typed, which is the id without what is before the colon */
+	name: string
+	icon: ComponentChildren
+	noun: string
+	problem: string | undefined
+	onInput: (name: string) => void
+	onSubmit: () => void
+	onCancel: () => void
+}
+/** A row of the list while its name is typed. The part before the colon cannot be changed. */
+function RenameRow({ id, name, icon, noun, problem, onInput, onSubmit, onCancel }: RenameRowProps) {
+	const input = useRef<HTMLInputElement>(null)
+	useEffect(() => {
+		input.current?.focus()
+		input.current?.select()
+	}, [id])
+	return <form class="gx-rename" onSubmit={e => {
+		e.preventDefault()
+		onSubmit()
+	}} onKeyDown={e => {
+		if (e.key !== 'Escape') return
+		e.preventDefault()
+		onCancel()
+	}}>
+		<span class="gx-dim-icon gx-item-icon">{icon}</span>
+		<div class="gx-rename-main">
+			<label class={`gx-rename-field${problem ? ' is-invalid' : ''}`}>
+				<span class="gx-rename-prefix gx-mono" title="The part before the colon stays as it is">{prefixOf(id)}</span>
+				<input ref={input} class="gx-mono" type="text" autocomplete="off" spellcheck={false} aria-label={`New name of the ${noun} ${id}, after ${prefixOf(id)}`}
+					aria-invalid={problem !== undefined} value={name} onInput={e => onInput((e.target as HTMLInputElement).value)} />
+			</label>
+			{problem && <p class="gx-field-error" role="alert">{problem}</p>}
+		</div>
+		<button type="submit" class="gx-btn gx-btn-filled" disabled={problem !== undefined}>
+			<span>Rename</span>
+		</button>
+		<button type="button" class="gx-btn gx-btn-text" onClick={onCancel}>
+			<span>Cancel</span>
+		</button>
+	</form>
+}
 /** The home tab of a view: what the dimension has of it, and ways to add more */
 export function ItemsHome(props: ItemsHomeProps) {
-	const { kind, title, intro, noun, caption, captionOf, icon, main, items, editable, fromGame, onOpen, onDelete } = props
+	const { kind, title, intro, noun, caption, captionOf, icon, main, items, editable, fromGame, onOpen, onDelete, onRename, onMove, onDuplicate } = props
 	const [confirming, setConfirming] = useState<string>()
+	const [renaming, setRenaming] = useState<{ id: string, name: string }>()
 	const [query, setQuery] = useState('')
 	const shown = matching(items, id => id, query)
+	const sortable = editable && onMove !== undefined && query.trim() === '' && items.length > 1
+	const field = ownField(kind)
+	const renameProblem = (id: string, typed: string) => {
+		const name = typed.trim()
+		const to = `${prefixOf(id)}${name}`
+		return !NAME_PATTERN.test(name) ? 'A name is in lowercase letters, digits and underscores. A slash puts it in a folder.'
+			: to === id ? undefined
+				: to in props.here[field] ? `This dimension already has a ${noun} ${to}.`
+					: props.vanilla.includes(to) ? `The game already has a ${noun} ${to}. Yours would replace it for every dimension.`
+						: undefined
+	}
 
 	return <div class="gx-editor gx-page">
 		<div class="gx-page-inner">
@@ -97,8 +168,12 @@ export function ItemsHome(props: ItemsHomeProps) {
 
 			{items.length >= FILTER_FROM && <Filter label={`Search these ${noun}s`} value={query} shown={shown.length} total={items.length} onChange={setQuery} />}
 			{main || items.length > 0
-				? <ul class="gx-dim-list" aria-label={`${title} of this dimension`}>
-					{main && <li class="gx-dim-row">
+				? <SortableList class="gx-item-sort" items={shown} keyOf={id => id} nameOf={id => id} label={`${title} of this dimension`}
+					// A list that is searched shows a part of itself, in which a place means nothing
+					locked={!sortable}
+					onMove={(from, to) => onMove?.(from, to)}
+					lead={main && <li class="gx-sort-row gx-sort-fixed">
+						{sortable && <span class="gx-sort-space" />}
 						<button type="button" class="gx-dim-open gx-item-open" onClick={() => onOpen(MAIN)}>
 							<span class="gx-dim-icon">{Ico.pin}</span>
 							<span class="gx-dim-text">
@@ -106,34 +181,51 @@ export function ItemsHome(props: ItemsHomeProps) {
 								<span>{main.caption}</span>
 							</span>
 						</button>
-						<span class="gx-item-note" title={'Every dimension has one, so it cannot be deleted'}>{Ico.lock}<span>Always there</span></span>
+						<span class="gx-item-note" title={'Every dimension has one, so it cannot be deleted, renamed or moved'}>{Ico.lock}<span>Always there</span></span>
 					</li>}
-					{shown.map(id => <li key={id} class="gx-dim-row">
-						<button type="button" class="gx-dim-open gx-item-open" onClick={() => onOpen(id)}>
-							<span class="gx-dim-icon gx-item-icon">{icon}</span>
-							<span class="gx-dim-text">
-								<strong>{id}</strong>
-								<span>{captionOf?.(id) ?? caption}</span>
-							</span>
-						</button>
-						{editable && (confirming === id
-							? <div class="gx-dim-confirm" role="group" aria-label={`Delete ${id}?`}>
-								<span>Delete for good?</span>
-								<button type="button" class="gx-btn gx-btn-danger" onClick={() => {
-									onDelete(id)
-									setConfirming(undefined)
-								}}>
-									<span>Delete</span>
-								</button>
-								<button type="button" class="gx-btn gx-btn-text" onClick={() => setConfirming(undefined)}>
-									<span>Keep</span>
-								</button>
-							</div>
-							: <div class="gx-dim-actions">
-								<IconButton icon={Ico.trash} label={`Delete ${id}`} tipSide="left" onClick={() => setConfirming(id)} />
-							</div>)}
-					</li>)}
-				</ul>
+					render={id => renaming?.id === id
+						? <RenameRow id={id} name={renaming.name} icon={icon} noun={noun} problem={renameProblem(id, renaming.name)}
+							onInput={name => setRenaming({ id, name })} onCancel={() => setRenaming(undefined)}
+							onSubmit={() => {
+								const to = `${prefixOf(id)}${renaming.name.trim()}`
+								if (renameProblem(id, renaming.name) !== undefined) return
+								if (to !== id) onRename?.(id, to)
+								setRenaming(undefined)
+							}} />
+						: <>
+							<button type="button" class="gx-dim-open gx-item-open" onClick={() => onOpen(id)}>
+								<span class="gx-dim-icon gx-item-icon">{icon}</span>
+								<span class="gx-dim-text">
+									<strong>{id}</strong>
+									<span>{captionOf?.(id) ?? caption}</span>
+								</span>
+							</button>
+							{editable && (confirming === id
+								? <div class="gx-dim-confirm" role="group" aria-label={`Delete ${id}?`}>
+									<span>Delete for good?</span>
+									<button type="button" class="gx-btn gx-btn-danger" onClick={() => {
+										onDelete(id)
+										setConfirming(undefined)
+									}}>
+										<span>Delete</span>
+									</button>
+									<button type="button" class="gx-btn gx-btn-text" onClick={() => setConfirming(undefined)}>
+										<span>Keep</span>
+									</button>
+								</div>
+								: <div class="gx-dim-actions">
+									{onRename && <IconButton icon={Ico.edit} label={`Rename ${id}`} tipSide="left" onClick={() => {
+										setConfirming(undefined)
+										setRenaming({ id, name: id.slice(prefixOf(id).length) })
+									}} />}
+									{onDuplicate && <IconButton icon={Ico.duplicate} label={`Duplicate ${id}`} tipSide="left" onClick={() => {
+										const copy = onDuplicate(id)
+										// A copy is named right away, since it starts with the name of what it copies
+										if (copy !== undefined) setRenaming({ id: copy, name: copy.slice(prefixOf(copy).length) })
+									}} />}
+									<IconButton icon={Ico.trash} label={`Delete ${id}`} tipSide="left" onClick={() => setConfirming(id)} />
+								</div>)}
+						</>} />
 				: <p class="gx-home-empty">{editable
 					? `This dimension has no ${noun}s of its own yet. It can use the ones of the game, or you can add one below.`
 					: fromGame ? `This dimension uses no ${noun}s of the game.`

@@ -45,10 +45,12 @@ interface Props {
 	terrain: TerrainInput
 	memory: TerrainMemory
 	dark: boolean
+	/** Gives the world another seed, which makes other terrain */
+	onNewSeed: () => void
 	onChange: (json: unknown) => void
 }
 /** A carver as the form of this site, next to what it cuts out of the terrain of the dimension */
-export function CarverEditor({ id, json, version, editable, used, data, dataError, terrain, memory, dark, onChange }: Props) {
+export function CarverEditor({ id, json, version, editable, used, data, dataError, terrain, memory, dark, onNewSeed, onChange }: Props) {
 	const [seed, setSeed] = useSessionState('carver.seed', BigInt(1))
 	const [highlight, setHighlight] = useSessionState('carver.highlight', true)
 	const [outcome, setOutcome] = useState<Outcome>()
@@ -86,7 +88,11 @@ export function CarverEditor({ id, json, version, editable, used, data, dataErro
 						<h2>Carved terrain</h2>
 						<p>What {id} cuts out of {TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of the dimension</p>
 					</div>
-					<IconButton icon={Ico.dice} label="Carve again at random" tipSide="left" onClick={() => setSeed(randomSeed())} />
+					<IconButton icon={Ico.dice} label="Carve again, out of the same terrain" tipSide="left" onClick={() => setSeed(randomSeed())} />
+					<IconButton icon={Ico.seed} label="New seed, with other terrain" tipSide="left" onClick={() => {
+						onNewSeed()
+						setSeed(randomSeed())
+					}} />
 					<IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />
 				</div>
 				<div class="gx-diorama-frame">

@@ -545,7 +545,7 @@ function Preview({ nodeId, json: nodeJson, finalJson, onLook, deltaInputs = NO_I
 	const high = delta ? 'raised' : 'solid'
 
 	return <Section title="Preview" actions={<>
-		<IconButton icon={Ico.dice} label="New random seed" tipSide="left" onClick={onNewSeed} />
+		<IconButton icon={Ico.seed} label="New random seed" tipSide="left" onClick={onNewSeed} />
 		<IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />
 	</>}>
 		<div class="gx-preview-controls">

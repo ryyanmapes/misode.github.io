@@ -26,9 +26,13 @@ interface Props<T> {
 	locked?: boolean
 	/** Tells which row is the selected one, when rows can be selected */
 	selected?: (item: T) => boolean
+	/** Rows that come first and stay there, as list items */
+	lead?: ComponentChildren
+	/** Sets the list apart for its styles */
+	class?: string
 }
 /** A list of rows that are put in another order by dragging their handle, or with the arrow keys on it */
-export function SortableList<T>({ items, keyOf, nameOf, render, onMove, label, locked, selected }: Props<T>) {
+export function SortableList<T>({ items, keyOf, nameOf, render, onMove, label, locked, selected, lead, class: clazz }: Props<T>) {
 	const list = useRef<HTMLOListElement>(null)
 	const drag = useRef<Drag>()
 	const [dragging, setDragging] = useState<{ from: number, to: number, delta: number, step: number }>()
@@ -120,7 +124,8 @@ export function SortableList<T>({ items, keyOf, nameOf, render, onMove, label, l
 	}
 
 	return <>
-		<ol ref={list} class={`gx-sort${dragging ? ' is-sorting' : ''}`} aria-label={label}>
+		<ol ref={list} class={`gx-sort${clazz ? ` ${clazz}` : ''}${dragging ? ' is-sorting' : ''}`} aria-label={label}>
+			{lead}
 			{items.map((item, index) => {
 				const dragged = dragging?.from === index
 				// The other rows step aside to show where the dragged one would land

@@ -265,7 +265,7 @@ function Preview({ node, doc, serializer, defaultBiome, bounds, registries, env,
 	const share = stats && stats.solid > 0 ? stats.marked / stats.solid * 100 : 0
 
 	return <Section title="Preview" actions={<>
-		<IconButton icon={Ico.dice} label="New random seed" tipSide="left" onClick={onNewSeed} />
+		<IconButton icon={Ico.seed} label="New random seed" tipSide="left" onClick={onNewSeed} />
 		<IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />
 	</>}>
 		<div class="gx-preview-controls">

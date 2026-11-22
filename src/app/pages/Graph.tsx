@@ -16,7 +16,7 @@ import type { ViewMemo } from '../components/graph/GraphCanvas.jsx'
 import { HomePage } from '../components/graph/HomePage.jsx'
 import { Ico } from '../components/graph/icons.jsx'
 import type { Own } from '../components/graph/items.js'
-import { circularFor, NO_OWN, ownOf, registryOf } from '../components/graph/items.js'
+import { circularFor, freeItemId, NO_OWN, ownOf, registryOf } from '../components/graph/items.js'
 import { ItemsHome } from '../components/graph/ItemsHome.jsx'
 import { ItemTabs } from '../components/graph/ItemTabs.jsx'
 import { materialFromJson, materialToJson, upgradeMaterial } from '../components/graph/material/convert.js'
@@ -24,6 +24,7 @@ import { MaterialEditor } from '../components/graph/material/MaterialEditor.jsx'
 import { blockName, ruleName } from '../components/graph/material/schema.js'
 import { NoiseEditor } from '../components/graph/NoiseEditor.jsx'
 import { PlacerEditor } from '../components/graph/PlacerEditor.jsx'
+import { insertAfter, moveKey, renameItem } from '../components/graph/rename.js'
 import type { DimensionData } from '../components/graph/presets.js'
 import { adoptBiome, biomeOf, fetchGameBiome, findVersion, GRAPH_VERSIONS, loadedPreset, loadPreset, needsBiome } from '../components/graph/presets.js'
 import { dropSession, sessionObject, useSessionState } from '../components/graph/session.js'
@@ -685,7 +686,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 
 	if (sub === 'dimension') {
 		return <DimensionEditor version={version} data={data} custom={custom} placerIds={placerIds} carverIds={carverIds} features={features} featuresError={gameError?.message}
-			terrain={terrain} memory={session.terrain} dark={dark} />
+			terrain={terrain} memory={session.terrain} dark={dark} onNewSeed={newSeed} />
 	}
 	if (sub === 'export') {
 		return <ExportPanel version={version} data={data} editable={editable} />
@@ -725,6 +726,46 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 		// The file of a template goes once no dimension has it any more
 		if (kind === 'template') void sweepTemplates()
 	}
+	// What the game has of this kind, whose ids something of the dimension cannot take
+	const ofGame = kind === 'material' && format === 'legacy' ? [] : (vanillaIds?.get(registryOf(kind, format)) ?? [])
+	const rename = (id: string, to: string) => {
+		if (customKey === undefined || id === to) return
+		updateCustom(customKey, record => id in record[field] && !(to in record[field]) ? renameItem(record, kind, id, to, format) : {})
+		// The graphs that are open still name the old id. They are made again from what is stored, which has the new one.
+		if (kind === 'noise' || kind === 'density' || kind === 'material') session.stores.clear()
+		// Where it was looked at stays with it
+		const view = session.views.get(`${kind}:${id}`)
+		if (view) {
+			session.views.set(`${kind}:${to}`, view)
+			session.views.delete(`${kind}:${id}`)
+		}
+		const cameras = session.terrain.cameras
+		if (cameras[`${kind}:${id}`]) {
+			cameras[`${kind}:${to}`] = cameras[`${kind}:${id}`]
+			delete cameras[`${kind}:${id}`]
+		}
+		changeItemTabs(kind, tabs => ({ open: tabs.open.map(other => other === id ? to : other), active: tabs.active === id ? to : tabs.active }))
+	}
+	const move = (from: number, to: number) => {
+		if (customKey === undefined) return
+		updateCustom(customKey, record => ({ [field]: moveKey(record[field] as Record<string, unknown>, from, to) }))
+	}
+	const duplicate = (id: string) => {
+		if (customKey === undefined || !(id in data[field])) return undefined
+		const copy = freeItemId(`${id}_copy`, other => other in data[field] || ofGame.includes(other))
+		updateCustom(customKey, record => {
+			const items = record[field] as Record<string, unknown>
+			if (!(id in items)) return {}
+			// A graph is copied as it is laid out
+			const docs = kind === 'density' ? 'densityDocs' : kind === 'material' ? 'ruleDocs' : undefined
+			const doc = docs && record[docs]?.[id]
+			return {
+				[field]: insertAfter(items, id, copy, structuredClone(items[id])),
+				...(docs && doc ? { [docs]: { ...record[docs], [copy]: structuredClone(doc) } } : {}),
+			}
+		})
+		return copy
+	}
 	const bringOver = (add: Own, id: string) => {
 		if (customKey === undefined) return
 		updateCustom(customKey, record => ({
@@ -743,13 +784,13 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 		icon={icon} tabs={tabs} active={activeItem} onSelect={id => id === null ? changeItemTabs(kind, t => ({ ...t, active: null })) : openItem(id)} onClose={closeItem} />
 
 	if (activeItem === null) {
-		const ofGame = kind === 'material' && format === 'legacy' ? [] : (vanillaIds?.get(registryOf(kind, format)) ?? [])
 		return <>
 			{strip}
 			<ItemsHome kind={kind} version={version} tab={tab} dimensionId={data.id} noun={info.noun} icon={icon} editable={editable} fromGame={data.fromGame === true}
 				title={info.title} intro={info.intro} caption={info.caption} captionOf={kind === 'template' ? id => describeTemplate(data.templates[id]) : undefined} base={info.base} main={info.main}
 				items={idsOf(kind)} here={own} mainJson={kind === 'density' ? densityToJson(densityStore.doc, schema) : materialToJson(materialStore.doc)}
-				vanilla={ofGame} onOpen={openItem} onCreate={create} onDelete={remove} onImport={bringOver} />
+				vanilla={ofGame} onOpen={openItem} onCreate={create} onDelete={remove} onImport={bringOver}
+				onRename={editable ? rename : undefined} onMove={editable ? move : undefined} onDuplicate={editable ? duplicate : undefined} />
 		</>
 	}
 
@@ -764,7 +805,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 				? <TemplateViewer key={viewKey} id={activeItem} meta={data.templates[activeItem]} version={version} dark={dark} camera={cameraOf(session.terrain, `template:${activeItem}`)} />
 				: kind === 'carver'
 					? <CarverEditor key={viewKey} id={activeItem} json={data.carvers[activeItem]} version={version} editable={editable} used={data.carving.includes(activeItem)}
-						data={features} dataError={gameError?.message} terrain={terrain} memory={session.terrain} dark={dark}
+						data={features} dataError={gameError?.message} terrain={terrain} memory={session.terrain} dark={dark} onNewSeed={newSeed}
 						onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ carvers: { ...record.carvers, [activeItem]: json } }))} />
 					: kind === 'feature'
 						? <FeatureEditor key={viewKey} id={activeItem} json={data.features[activeItem]} version={version} editable={editable} data={features} dataError={gameError?.message} blocks={vanillaIds?.get('block')} known={known}
@@ -772,7 +813,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 							onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ features: { ...record.features, [activeItem]: json } }))} />
 						: kind === 'placer'
 							? <PlacerEditor key={viewKey} id={activeItem} json={data.placers[activeItem]} version={version} editable={editable} data={features} dataError={gameError?.message} known={known} carving={data.carving}
-								terrain={terrain} memory={session.terrain} dark={dark}
+								terrain={terrain} memory={session.terrain} dark={dark} onNewSeed={newSeed}
 								onChange={json => customKey !== undefined && updateCustom(customKey, record => ({ placers: { ...record.placers, [activeItem]: json } }))} />
 							: kind === 'density'
 								? <DensityEditor key={viewKey} store={activeStore!} schema={activeItem === MAIN ? schema : namedSchema} format={format} env={worldgen} registries={registries}
