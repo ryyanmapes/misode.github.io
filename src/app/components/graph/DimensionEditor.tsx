@@ -6,14 +6,15 @@ import type { FeatureData } from './features/index.js'
 import { documentName } from './FeatureEditor.jsx'
 import { Ico } from './icons.jsx'
 import { fullId } from './items.js'
-import { ruleName } from './material/schema.js'
+import { blockLabel, ruleName } from './material/schema.js'
 import type { DimensionData, GraphVersion } from './presets.js'
 import { biomeOf, isValidId, withDimensionId } from './presets.js'
 import { useSessionState } from './session.js'
 import { SortableList } from './SortableList.jsx'
 import { TreeEditor } from './TreeEditor.jsx'
-import { Field, IconButton, IdSelect, Lockable, NumberField, prettyId, Section } from './ui.jsx'
+import { Field, IconButton, IdSelect, Lockable, NumberField, prettyId, Section, Select } from './ui.jsx'
 import type { ViewportApi } from './Viewport2D.jsx'
+import { carveSettingsOf } from './view/carve.js'
 import { Diorama } from './view/Diorama.jsx'
 import type { TerrainInput, TerrainMemory } from './view/terrain.js'
 import { cameraOf, placeText, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
@@ -22,6 +23,11 @@ import { cameraOf, placeText, TERRAIN_CHUNKS, useDecoratedTerrain } from './view
 const SECTION = 16
 const LOWEST = -2032
 const HIGHEST = 2032
+
+const WATER = 'minecraft:water'
+const LAVA = 'minecraft:lava'
+/** Below this height the game fills open space with lava, whatever the fluid of the dimension is */
+const LAVA_BELOW = -54
 
 /** What of a biome the lists of the dimension stand for, which the form of the biome leaves out */
 const BIOME_LISTS = ['carvers', 'features']
@@ -189,6 +195,31 @@ export function DimensionEditor({ version, data, custom, placerIds, carverIds, f
 		updateCustom(custom.key, { settings: { ...custom.settings, noise: { ...custom.settings?.noise, min_y: next.min, height: next.height } } })
 	}
 
+	const sea = carveSettingsOf(data.settings)
+	const fluidLabel = blockLabel(sea.defaultFluid).toLowerCase()
+	const open = `Where the final density leaves the terrain open below Y ${sea.seaLevel}, there is`
+	// The game has lava below a fixed height, or below the sea when that is lower still
+	const seaText = sea.seaLevel <= terrain.min ? 'The sea level is not above the bottom of the terrain, so this dimension has no sea.'
+		: sea.defaultFluid === LAVA || terrain.min >= Math.min(LAVA_BELOW, sea.seaLevel) ? `${open} ${fluidLabel}.`
+			: sea.seaLevel <= LAVA_BELOW ? `${open} lava and not ${fluidLabel}: the game puts lava in what is open below Y ${LAVA_BELOW}, whatever the fluid is.`
+				: `${open} ${fluidLabel}, and below Y ${LAVA_BELOW} lava: the game puts lava there whatever the fluid is. To have none of it, start the terrain at Y ${Math.ceil(LAVA_BELOW / SECTION) * SECTION} or higher, or put the sea level at the bottom of the terrain.`
+	const fluids = [{ value: WATER, label: 'Water' }, { value: LAVA, label: 'Lava' }]
+	if (sea.defaultFluid !== WATER && sea.defaultFluid !== LAVA) fluids.push({ value: sea.defaultFluid, label: prettyId(sea.defaultFluid) })
+
+	const setSea = (level: number, fluid: string) => {
+		if (!custom) return
+		const settings = { ...custom.settings, sea_level: clamp(Math.round(level), LOWEST, HIGHEST) }
+		if (fluid !== sea.defaultFluid) {
+			// The fluid is written the way that it was: by its id alone, or as a block state in the spelling of the version
+			const state = custom.settings?.default_fluid
+			const modern = version.format === 'modern'
+			const lower = typeof state === 'object' && state !== null ? 'id' in state : modern
+			settings.default_fluid = typeof state === 'string' || (state === undefined && modern) ? fluid
+				: lower ? { id: fluid, properties: { level: '0' } } : { Name: fluid, Properties: { level: '0' } }
+		}
+		updateCustom(custom.key, { settings })
+	}
+
 	return <div class="gx-editor">
 		<div class="gx-work gx-work-form">
 			<div class="gx-stage gx-form gx-form-page">
@@ -256,6 +287,23 @@ export function DimensionEditor({ version, data, custom, placerIds, carverIds, f
 							<p class="gx-muted">
 						The final density and the {rule} make terrain from Y {terrain.min} up to Y {terrain.min + terrain.height - 1}. This is part of the noise settings.
 								{cut && ' The part of it outside of the world height is cut off by the game.'}
+							</p>
+						</section>
+
+						<section class="gx-card">
+							<h3>Sea</h3>
+							<div class="gx-fields">
+								<Field label="Fluid" hint="What fills the open space below the sea level">
+									{id => <Select id={id} label="Fluid of the sea" value={sea.defaultFluid} options={fluids} onChange={v => setSea(sea.seaLevel, v)} />}
+								</Field>
+								<Field label="Sea level" hint="The height of the surface of the sea. At or below the lowest Y of the terrain there is no sea.">
+									{id => <NumberField id={id} label="Sea level" int value={sea.seaLevel} onChange={v => setSea(v, sea.defaultFluid)} />}
+								</Field>
+							</div>
+							<p class="gx-muted">
+								{seaText}
+								{sea.aquifers && ' This dimension has aquifers, which decide for every cave below the surface how high its water or lava stands.'}
+								{' '}This is part of the noise settings.
 							</p>
 						</section>
 					</Lockable>
