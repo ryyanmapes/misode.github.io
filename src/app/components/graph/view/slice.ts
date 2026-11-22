@@ -147,12 +147,13 @@ export class WorldSlice {
 	private highlight: number | boolean = false
 	private onlyMarked = false
 
-	constructor(readonly volume: SliceVolume, chunksX: number, chunksZ: number, private decorator?: SliceDecorator) {
+	/** `middle` is the chunk of the world that the box is around, which is the one at the origin when nothing is given */
+	constructor(readonly volume: SliceVolume, chunksX: number, chunksZ: number, private decorator?: SliceDecorator, middle: readonly [number, number] = [0, 0]) {
 		this.chunksX = chunksX
 		this.chunksZ = chunksZ
 		this.total = chunksX * chunksZ
-		this.minX = -Math.floor(chunksX / 2) * 16
-		this.minZ = -Math.floor(chunksZ / 2) * 16
+		this.minX = (middle[0] - Math.floor(chunksX / 2)) * 16
+		this.minZ = (middle[1] - Math.floor(chunksZ / 2)) * 16
 		this.sizeX = chunksX * 16
 		this.sizeZ = chunksZ * 16
 		this.minY = volume.minY

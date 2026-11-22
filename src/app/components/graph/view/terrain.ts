@@ -39,6 +39,13 @@ export interface TerrainInput {
 	rule: string
 	seed: bigint
 	biome: string
+	/** The chunk of the world that is in the middle of what is shown */
+	chunk: readonly [number, number]
+}
+
+/** Where a chunk is in the world, as people read it: the block at its corner */
+export function placeText(chunk: readonly [number, number]) {
+	return `X ${(chunk[0] * 16).toLocaleString('en')}, Z ${(chunk[1] * 16).toLocaleString('en')}`
 }
 
 /**
@@ -47,14 +54,14 @@ export interface TerrainInput {
  * their work again on the same terrain. `placers` and `carvers` are the JSON of placed features and of
  * carvers, or their ids. The carvers follow the seed of the terrain, unless they get one of their own.
  */
-export function useDecoratedTerrain({ version, env, settings, rule, seed, biome }: TerrainInput, memory: TerrainMemory, placers: unknown[], data: FeatureData | undefined, featureSeed: bigint, carvers: unknown[] = NO_CARVERS, carveSeed: bigint = seed) {
+export function useDecoratedTerrain({ version, env, settings, rule, seed, biome, chunk }: TerrainInput, memory: TerrainMemory, placers: unknown[], data: FeatureData | undefined, featureSeed: bigint, carvers: unknown[] = NO_CARVERS, carveSeed: bigint = seed) {
 	// What the terrain refers to by id is part of what it is
-	const key = `${version.id}\n${env?.rev}\n${seed}\n${biome}\n${rule}\n${settings}`
+	const key = `${version.id}\n${env?.rev}\n${seed}\n${chunk[0]} ${chunk[1]}\n${biome}\n${rule}\n${settings}`
 	const built = useMemo(() => {
 		if (!env || !settings) return undefined
 		if (memory.key === key && memory.slice) return { slice: memory.slice }
 		try {
-			const slice = new WorldSlice(new TerrainVolume(env, JSON.parse(settings), JSON.parse(rule), seed, biome), TERRAIN_CHUNKS, TERRAIN_CHUNKS)
+			const slice = new WorldSlice(new TerrainVolume(env, JSON.parse(settings), JSON.parse(rule), seed, biome), TERRAIN_CHUNKS, TERRAIN_CHUNKS, undefined, chunk)
 			memory.key = key
 			memory.slice = slice
 			return { slice }

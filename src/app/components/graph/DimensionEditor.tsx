@@ -16,7 +16,7 @@ import { Field, IconButton, IdSelect, Lockable, NumberField, prettyId, Section }
 import type { ViewportApi } from './Viewport2D.jsx'
 import { Diorama } from './view/Diorama.jsx'
 import type { TerrainInput, TerrainMemory } from './view/terrain.js'
-import { cameraOf, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
+import { cameraOf, placeText, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
 
 /** The game only accepts heights in whole chunk sections, between these limits */
 const SECTION = 16
@@ -365,10 +365,10 @@ export function DimensionEditor({ version, data, custom, placerIds, carverIds, f
 					<span class="gx-dot gx-dot-lg" style={{ background: 'var(--gx-cat-shape)' }} />
 					<div class="gx-side-title">
 						<h2>Preview</h2>
-						<p>{TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of {data.id}, with its carvers and placed features</p>
+						<p>{TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of {data.id} around {placeText(terrainInput.chunk)}, with its carvers and placed features</p>
 					</div>
 					<IconButton icon={Ico.dice} label="Place the features again, on the same terrain" tipSide="left" onClick={() => setSeed(randomSeed())} />
-					<IconButton icon={Ico.seed} label="New seed, with other terrain" tipSide="left" onClick={() => {
+					<IconButton icon={Ico.seed} label="New seed, at another place of the world" tipSide="left" onClick={() => {
 						onNewSeed()
 						setSeed(randomSeed())
 					}} />

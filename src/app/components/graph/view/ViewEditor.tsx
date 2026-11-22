@@ -92,12 +92,14 @@ interface Props {
 	/** The noise settings as a JSON string, with the final density as it is now */
 	settings: string | undefined
 	seed: bigint
+	/** The chunk of the world that is in the middle of the slice */
+	chunk: readonly [number, number]
 	onNewSeed: () => void
 	dark: boolean
 	memory: ViewMemory
 }
 /** Shows a piece of the world in 3D, as it is after the final density and the rule */
-export function ViewEditor({ version, tabKey, label, editable, defaultBiome, env, registries, material, decoration, carving, features, settings, seed, onNewSeed, dark, memory }: Props) {
+export function ViewEditor({ version, tabKey, label, editable, defaultBiome, env, registries, material, decoration, carving, features, settings, seed, chunk, onNewSeed, dark, memory }: Props) {
 	useStore(material)
 	const materialDoc = useStructure(material.doc)
 	const rule = useMemo(() => JSON.stringify(materialSerializer(materialDoc).root()), [materialDoc])
@@ -124,7 +126,7 @@ export function ViewEditor({ version, tabKey, label, editable, defaultBiome, env
 	Object.assign(memory, { chunksX, chunksZ, biome, biomeOf: tabKey, top, speed })
 
 	// What the terrain refers to by id is part of what it is, so the view is made again when that changes
-	const key = `${version.id}\n${env?.rev}\n${seed}\n${biome}\n${chunksX}x${chunksZ}\n${rule}\n${settings}\n${decoration.join(' ')}\n${carving.join(' ')}`
+	const key = `${version.id}\n${env?.rev}\n${seed}\n${chunk[0]} ${chunk[1]}\n${biome}\n${chunksX}x${chunksZ}\n${rule}\n${settings}\n${decoration.join(' ')}\n${carving.join(' ')}`
 	// The world waits for what the game has of features and block tags when the dimension has carvers or places features
 	const decorated = decoration.length > 0 || carving.length > 0
 	const placing = decorated ? features : undefined
@@ -138,7 +140,7 @@ export function ViewEditor({ version, tabKey, label, editable, defaultBiome, env
 			const carveSettings = carveSettingsOf(parsed)
 			const carvers = placing && carving.length > 0 ? new Carving(carving, placing, seed, carveSettings) : undefined
 			const decorator = placing ? new PlacerDecorator(decoration, placing, seed, carveSettings.seaLevel, carvers) : undefined
-			const slice = new WorldSlice(volume, chunksX, chunksZ, decorator)
+			const slice = new WorldSlice(volume, chunksX, chunksZ, decorator, chunk)
 			memory.key = key
 			memory.slice = slice
 			memory.features = placing
@@ -283,7 +285,7 @@ export function ViewEditor({ version, tabKey, label, editable, defaultBiome, env
 							? `The terrain after the final density and the ${name}, with the carvers and placed features of the dimension`
 							: `The terrain after the final density and the ${name}`}</p>
 					</div>
-					<IconButton icon={Ico.seed} label="New random seed" tipSide="left" onClick={onNewSeed} />
+					<IconButton icon={Ico.seed} label="New seed, at another place of the world" tipSide="left" onClick={onNewSeed} />
 					<IconButton icon={Ico.target} label="Reset the view" tipSide="left" onClick={() => viewport.current?.reset()} />
 				</div>
 				<Section title="Camera">

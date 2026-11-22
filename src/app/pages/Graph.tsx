@@ -46,6 +46,8 @@ import { fetchRegistries } from '../services/index.js'
 import { randomSeed } from '../Utils.js'
 
 const SNAP_KEY = 'misode_graph_snap'
+/** How far from the middle of the world a new seed is looked at, in chunks */
+const FARTHEST_CHUNK = 6250
 const LIMIT_KEY = 'misode_graph_height_limit'
 const SLIDER_KEY = 'misode_graph_slider_range'
 
@@ -453,7 +455,14 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 	const { format } = version
 	// How things are shown stays the same when another dimension is opened, so dimensions can be compared
 	const [seed, setSeed] = useSessionState('seed', BigInt(2025))
-	const newSeed = useCallback(() => setSeed(randomSeed()), [setSeed])
+	// The chunk in the middle of what the previews show of the terrain, which is the same for all of them
+	const [chunk, setChunk] = useSessionState<[number, number]>('chunk', [0, 0])
+	const newSeed = useCallback(() => {
+		setSeed(randomSeed())
+		// Another world is looked at somewhere else as well, up to a hundred thousand blocks from its middle
+		const anywhere = () => Math.floor(Math.random() * (2 * FARTHEST_CHUNK + 1)) - FARTHEST_CHUNK
+		setChunk([anywhere(), anywhere()])
+	}, [setSeed, setChunk])
 	const editable = custom !== undefined
 	const customKey = custom?.key
 	const { settings, rule, dimensionType } = data
@@ -664,7 +673,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 	const templateIds = vanillaIds?.get(registryOf('template', format))
 	const features = useMemo(() => game ? featureDataOf(version, game, own, temperature, templateSource(version, own.templates, templateIds)) : undefined, [game, own, version, temperature, templateIds, templateLoads])
 	const ruleText = JSON.stringify(materialToJson(materialStore.doc))
-	const terrain = useMemo<TerrainInput>(() => ({ version, env: worldgen, settings: settingsText, rule: ruleText, seed, biome: gameBiome }), [version, worldgen, settingsText, ruleText, seed, gameBiome])
+	const terrain = useMemo<TerrainInput>(() => ({ version, env: worldgen, settings: settingsText, rule: ruleText, seed, biome: gameBiome, chunk }), [version, worldgen, settingsText, ruleText, seed, gameBiome, chunk])
 	const placerIds = useMemo(() => [
 		...Object.keys(data.placers),
 		...(game ? [...game.placed.keys()] : []).filter(id => !(id in data.placers)).sort(),
@@ -693,7 +702,7 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 	}
 	if (sub === 'view' || kind === undefined) {
 		return <ViewEditor version={version} tabKey={tab.id} label={label} editable={editable} defaultBiome={data.biomes[0]} env={worldgen} registries={allRegistries} material={materialStore} decoration={data.decoration} carving={data.carving} features={features} settings={settingsText}
-			seed={seed} onNewSeed={newSeed} dark={dark} memory={viewMemory} />
+			seed={seed} chunk={chunk} onNewSeed={newSeed} dark={dark} memory={viewMemory} />
 	}
 
 	const field = FIELD[kind]

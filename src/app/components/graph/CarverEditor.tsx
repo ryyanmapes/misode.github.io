@@ -11,7 +11,7 @@ import { CopyButton, Field, IconButton, Lockable, prettyId, Section, Switch } fr
 import type { ViewportApi } from './Viewport2D.jsx'
 import { Diorama } from './view/Diorama.jsx'
 import type { TerrainInput, TerrainMemory } from './view/terrain.js'
-import { cameraOf, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
+import { cameraOf, placeText, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
 
 /** What each type of carver cuts out of the terrain */
 const SHAPES: Record<string, string> = {
@@ -86,10 +86,10 @@ export function CarverEditor({ id, json, version, editable, used, data, dataErro
 					<span class="gx-dot gx-dot-lg" style={{ background: 'var(--gx-cat-shape)' }} />
 					<div class="gx-side-title">
 						<h2>Carved terrain</h2>
-						<p>What {id} cuts out of {TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of the dimension</p>
+						<p>What {id} cuts out of {TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of the dimension, around {placeText(terrain.chunk)}</p>
 					</div>
 					<IconButton icon={Ico.dice} label="Carve again, out of the same terrain" tipSide="left" onClick={() => setSeed(randomSeed())} />
-					<IconButton icon={Ico.seed} label="New seed, with other terrain" tipSide="left" onClick={() => {
+					<IconButton icon={Ico.seed} label="New seed, at another place of the world" tipSide="left" onClick={() => {
 						onNewSeed()
 						setSeed(randomSeed())
 					}} />

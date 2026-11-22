@@ -13,7 +13,7 @@ import type { PlacedPosition } from './view/decorate.js'
 import { Diorama, useSliceWork } from './view/Diorama.jsx'
 import type { WorldSlice } from './view/slice.js'
 import type { TerrainInput, TerrainMemory } from './view/terrain.js'
-import { cameraOf, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
+import { cameraOf, placeText, TERRAIN_CHUNKS, useDecoratedTerrain } from './view/terrain.js'
 
 type Mode = 'map' | '3d'
 const MODES: { value: Mode, label: string }[] = [{ value: 'map', label: 'Map' }, { value: '3d', label: '3D' }]
@@ -183,10 +183,10 @@ export function PlacerEditor({ id, json, version, editable, data, dataError, kno
 					<span class="gx-dot gx-dot-lg" style={{ background: 'var(--gx-cat-shape)' }} />
 					<div class="gx-side-title">
 						<h2>Placement</h2>
-						<p>Where {id} places its feature in {TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of the dimension</p>
+						<p>Where {id} places its feature in {TERRAIN_CHUNKS} by {TERRAIN_CHUNKS} chunks of the dimension, around {placeText(terrain.chunk)}</p>
 					</div>
 					<IconButton icon={Ico.dice} label="Place again, on the same terrain" tipSide="left" onClick={() => setSeed(randomSeed())} />
-					<IconButton icon={Ico.seed} label="New seed, with other terrain" tipSide="left" onClick={() => {
+					<IconButton icon={Ico.seed} label="New seed, at another place of the world" tipSide="left" onClick={() => {
 						onNewSeed()
 						setSeed(randomSeed())
 					}} />
