@@ -124,6 +124,18 @@ export function listCustom(): CustomMeta[] {
 	return index!
 }
 
+/**
+ * The noises of a stored dimension, as the game reads them. For a while the editor wrote whether a noise is
+ * normalized as "enabled" or "disabled", which the game refuses: it takes true, false or "legacy".
+ */
+function fixNoises(noises: unknown): Record<string, unknown> {
+	if (typeof noises !== 'object' || noises === null) return {}
+	return Object.fromEntries(Object.entries(noises).map(([id, noise]) => {
+		const normalize = (noise as { normalize?: unknown } | null)?.normalize
+		return [id, normalize === 'enabled' || normalize === 'disabled' ? { ...noise, normalize: normalize === 'enabled' } : noise]
+	}))
+}
+
 export function loadCustom(key: string): CustomDimension | undefined {
 	if (!listCustom().some(m => m.key === key)) return undefined
 	if (!records.has(key)) {
@@ -133,7 +145,7 @@ export function loadCustom(key: string): CustomDimension | undefined {
 			...stored,
 			biomes: Array.isArray(stored.biomes) && stored.biomes.length > 0 ? stored.biomes : ['minecraft:plains'],
 			densityFunctions: stored.densityFunctions ?? {},
-			noises: stored.noises ?? {},
+			noises: fixNoises(stored.noises),
 			rules: stored.rules ?? {},
 			features: stored.features ?? {},
 			placers: stored.placers ?? {},

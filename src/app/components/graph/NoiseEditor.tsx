@@ -58,7 +58,8 @@ function writeNoise(model: NoiseModel, format: GraphFormat, previous: unknown): 
 		base_amplitude: model.base,
 		base_octave: model.first,
 		octave_count: model.amplitudes.length,
-		...(model.normalize !== '' ? { normalize: model.normalize } : {}),
+		// The game takes true, false or "legacy" here. The names "enabled" and "disabled" are only how the editor shows them.
+		...(model.normalize !== '' ? { normalize: model.normalize === 'legacy' ? 'legacy' : model.normalize !== 'disabled' } : {}),
 	}
 }
 
