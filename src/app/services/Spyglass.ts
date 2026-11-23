@@ -154,6 +154,20 @@ export class SpyglassService {
 		return docAndNode
 	}
 
+	/**
+	 * Checks a text as the file that it would be at an address, and gives what the check found.
+	 * Nothing is kept: the text is not written anywhere and is no document afterwards.
+	 */
+	public async checkContent(uri: string, content: string): Promise<core.DocAndNode | undefined> {
+		const lang = core.fileUtil.extname(uri)?.slice(1) ?? 'txt'
+		await this.service.project.onDidOpen(uri, lang, 1, content)
+		try {
+			return await this.service.project.ensureClientManagedChecked(uri)
+		} finally {
+			this.service.project.onDidClose(uri)
+		}
+	}
+
 	public async readFile(uri: string): Promise<string | undefined> {
 		try {
 			const buffer = await this.service.project.externals.fs.readFile(uri)

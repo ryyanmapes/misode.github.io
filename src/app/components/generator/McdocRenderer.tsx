@@ -100,7 +100,7 @@ function Head({ type, optional, excludeStrings, node, ctx }: Props) {
 		if (isFixedList(type)) {
 			return <TupleHead type={{ kind: 'tuple', items: [...Array(type.lengthRange.min)].map(() => getItemType(type)), attributes: type.attributes }} optional={optional} node={node} ctx={ctx} />
 		}
-		return <ListHead type={type} node={node} ctx={ctx} />
+		return <ListHead type={type} optional={optional} node={node} ctx={ctx} />
 	}
 	if (type.kind === 'tuple') {
 		return <TupleHead type={type} optional={optional} node={node} ctx={ctx} />
@@ -163,7 +163,8 @@ function Body({ type, optional, node, ctx }: Props<SimplifiedMcdocType>) {
 const SPECIAL_UNSET = '__unset__'
 
 /** The registry that a text is an id of, when it is one */
-function idRegistryOf(type: SimplifiedMcdocType): string | undefined {
+/** The registry that a text is an id of, when its type says that it is one */
+export function idRegistryOf(type: SimplifiedMcdocType): string | undefined {
 	const idAttribute = type.attributes?.find(a => a.name === 'id')?.value
 	return idAttribute?.kind === 'literal' && idAttribute.value.kind === 'string'
 		? idAttribute.value.value
@@ -878,10 +879,19 @@ function UnknownField({ pair, index, fieldKey, node, ctx }: UnknownFieldProps) {
 	</div>
 }
 
-function ListHead({ type, node, ctx }: Props<ListType | PrimitiveArrayType>) {
+function ListHead({ type, optional, node, ctx }: Props<ListType | PrimitiveArrayType>) {
 	const { locale } = useLocale()
 
 	const canAdd = (type.lengthRange?.max ?? Infinity) > (node?.children?.length ?? 0)
+	// An optional list that is there but empty looks like one that is left out, and is not the same:
+	// the game can refuse an empty list where it accepts none at all. So it can be taken away.
+	const isEmptyList = optional && JsonArrayNode.is(node) && node.children.length === 0
+
+	const onRemove = useCallback(() => {
+		ctx.makeEdit(() => {
+			return undefined
+		})
+	}, [ctx])
 
 	const onAddTop = useCallback(() => {
 		if (canAdd) {
@@ -911,9 +921,14 @@ function ListHead({ type, node, ctx }: Props<ListType | PrimitiveArrayType>) {
 		}
 	}, [type, node, ctx, canAdd])
 
-	return <button class="add tooltipped tip-se" aria-label={locale('add_top')} onClick={() => onAddTop()} disabled={!canAdd}>
-		{Octicon.plus_circle}
-	</button>
+	return <>
+		{isEmptyList && <button class="remove tooltipped tip-se" aria-label={locale('remove')} onClick={onRemove}>
+			{Octicon.trashcan}
+		</button>}
+		<button class="add tooltipped tip-se" aria-label={locale('add_top')} onClick={() => onAddTop()} disabled={!canAdd}>
+			{Octicon.plus_circle}
+		</button>
+	</>
 }
 
 function ListBody({ type: outerType, optional, node, ctx }: Props<ListType | PrimitiveArrayType>) {
@@ -962,8 +977,9 @@ function ListBody({ type: outerType, optional, node, ctx }: Props<ListType | Pri
 	const makeListEdit: MakeEdit = useCallback((edit) => {
 		ctx.makeEdit(() => {
 			const newNode = edit(node.range)
-			if (JsonArrayNode.is(newNode) && newNode.children.length === 0 && optional && type.kind === 'list' && (type.lengthRange?.min ?? 0) > 0) {
-				// Remove entire list when empty list is not allowed and field is optional
+			if (JsonArrayNode.is(newNode) && newNode.children.length === 0 && optional) {
+				// Taking the last item out of an optional list takes the list away, which is how it was before
+				// the first item was added. An empty list would look the same and can mean something else.
 				return undefined
 			}
 			return newNode

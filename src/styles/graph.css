@@ -4154,3 +4154,124 @@ main.gx {
 		transition: none;
 	}
 }
+
+/* What the checks of the export view found */
+.gx-export-note {
+	grid-column: 1 / -1;
+	margin-top: 4px;
+}
+
+.gx-check-status {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0 6px;
+	min-height: 24px;
+}
+
+.gx-check-status > svg,
+.gx-check-status > .gx-spinner {
+	flex: none;
+	width: 18px;
+	height: 18px;
+	margin-right: 2px;
+}
+
+.gx-check-ok > svg {
+	color: var(--gx-then);
+}
+
+.gx-check-status strong {
+	font-weight: 600;
+	color: var(--gx-danger);
+}
+
+.gx-findings,
+.gx-findings ul {
+	display: grid;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.gx-findings {
+	gap: 14px;
+}
+
+.gx-findings ul {
+	gap: 6px;
+	margin: 6px 0 0 26px;
+}
+
+.gx-finding-file {
+	display: grid;
+	grid-template-columns: 18px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+	min-height: 32px;
+}
+
+.gx-finding-file > svg {
+	width: 16px;
+	height: 16px;
+	color: var(--gx-text-3);
+}
+
+.gx-finding-file .gx-mono {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	user-select: text;
+}
+
+.gx-finding {
+	display: grid;
+	grid-template-columns: 96px minmax(0, 1fr);
+	align-items: start;
+	gap: 10px;
+	padding: 8px 12px;
+	border-radius: 10px;
+	background: var(--gx-field);
+	line-height: 20px;
+}
+
+.gx-finding-level {
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.gx-finding-error .gx-finding-level {
+	color: var(--gx-danger);
+}
+
+.gx-finding-warning .gx-finding-level {
+	color: var(--gx-fc-cond-text);
+}
+
+.gx-finding-text {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+	user-select: text;
+}
+
+.gx-finding-text .gx-mono {
+	overflow-wrap: anywhere;
+	font-size: 12px;
+	color: var(--gx-text-2);
+}
+
+.gx-finding-text > span:last-child {
+	overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+	.gx-finding {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2px;
+	}
+
+	.gx-findings ul {
+		margin-left: 0;
+	}
+}

@@ -16,7 +16,8 @@ import { blockCss } from './material/blocks.js'
 // A dimension can be of another version, which then gets a service of its own, made once.
 const services = new Map<VersionId, Promise<SpyglassService>>()
 
-function useService(version: VersionId) {
+/** The service that checks JSON against the format of a version of the game. It takes a moment to be there. */
+export function useService(version: VersionId) {
 	const { client, service: shared, serviceLoading } = useSpyglass()
 	const { version: siteVersion } = useVersion()
 	const [state, setState] = useState<{ version: VersionId, service?: SpyglassService, error?: string }>({ version })

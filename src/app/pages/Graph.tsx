@@ -698,7 +698,13 @@ function Workspace({ tab, sub, label, data, custom, env, vanillaIds, dark }: Wor
 			terrain={terrain} memory={session.terrain} dark={dark} onNewSeed={newSeed} />
 	}
 	if (sub === 'export') {
-		return <ExportPanel version={version} data={data} editable={editable} />
+		return <ExportPanel version={version} data={data} editable={editable} registries={vanillaIds} onOpen={target => {
+			const { item } = target
+			if (isItemKind(target.sub) && item !== undefined) {
+				changeItemTabs(target.sub, tabs => ({ open: tabs.open.includes(item) ? tabs.open : [...tabs.open, item], active: item }))
+			}
+			route(tabHref(tab, target.sub))
+		}} />
 	}
 	if (sub === 'view' || kind === undefined) {
 		return <ViewEditor version={version} tabKey={tab.id} label={label} editable={editable} defaultBiome={data.biomes[0]} env={worldgen} registries={allRegistries} material={materialStore} decoration={data.decoration} carving={data.carving} features={features} settings={settingsText}
