@@ -4275,3 +4275,36 @@ main.gx {
 		margin-left: 0;
 	}
 }
+
+/* A value of the tree form that has no fields of its own, as JSON */
+.gx-tree .node-raw {
+	display: grid;
+	gap: 4px;
+	max-width: 560px;
+}
+
+.gx-tree .node-raw textarea {
+	width: 100%;
+	min-height: 44px;
+	padding: 6px 8px;
+	border: 1px solid var(--gx-outline);
+	border-radius: 6px;
+	background: var(--gx-field);
+	color: var(--gx-text);
+	font-family: var(--gx-mono);
+	font-size: 12.5px;
+	line-height: 18px;
+	resize: vertical;
+	tab-size: 2;
+}
+
+.gx-tree .node-raw textarea:focus-visible {
+	outline: 2px solid var(--gx-primary);
+	outline-offset: -1px;
+}
+
+.gx-tree .node-raw-error {
+	color: var(--gx-danger);
+	font-size: 12.5px;
+	line-height: 18px;
+}

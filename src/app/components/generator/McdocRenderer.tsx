@@ -25,7 +25,7 @@ import { Btn } from '../Btn.jsx'
 import { ItemDisplay } from '../ItemDisplay.jsx'
 import { ItemDisplay1204 } from '../ItemDisplay1204.jsx'
 import { Octicon } from '../Octicon.jsx'
-import { formatIdentifier, getCategory, getChange, getDefault, getItemType, isDefaultCollapsedType, isFixedList, isInlineTuple, isListOrArray, isNumericType, isSelectRegistry, quickEqualTypes, simplifyType } from './McdocHelpers.js'
+import { formatIdentifier, getCategory, getChange, getDefault, getItemType, jsonFromNode, nodeFromJson, isDefaultCollapsedType, isFixedList, isInlineTuple, isListOrArray, isNumericType, isSelectRegistry, quickEqualTypes, simplifyType } from './McdocHelpers.js'
 
 export interface McdocContext extends core.CheckerContext {
 	makeEdit: MakeEdit
@@ -119,8 +119,12 @@ function Body({ type, optional, node, ctx }: Props<SimplifiedMcdocType>) {
 		return <UnionBody type={type} optional={optional} node={node} ctx={ctx} />
 	}
 	if (type.kind === 'struct') {
-		if (!JsonObjectNode.is(node) || type.fields.length === 0) {
+		if (!JsonObjectNode.is(node)) {
 			return <></>
+		}
+		if (type.fields.length === 0) {
+			// The format names no fields for this, such as the data of a block that a rule adds to. It is still there, and can be changed as JSON.
+			return <RawJson node={node} ctx={ctx} />
 		}
 		return <div class="node-body">
 			<StructBody type={type} node={node} ctx={ctx} />
@@ -158,6 +162,43 @@ function Body({ type, optional, node, ctx }: Props<SimplifiedMcdocType>) {
 		return <AnyBody type={type} optional={optional} node={node} ctx={ctx} />
 	}
 	return <></>
+}
+
+/** A value that the form has no fields for, as JSON that can be typed. What is typed is kept when the field is left, if it is an object. */
+function RawJson({ node, ctx }: { node: JsonObjectNode, ctx: McdocContext }) {
+	const text = useMemo(() => JSON.stringify(jsonFromNode(node), null, 2), [node])
+	const [draft, setDraft] = useState(text)
+	const [problem, setProblem] = useState<string>()
+	useEffect(() => {
+		setDraft(text)
+		setProblem(undefined)
+	}, [text])
+
+	const onCommit = useCallback(() => {
+		if (draft === text) {
+			setProblem(undefined)
+			return
+		}
+		let value: unknown
+		try {
+			value = JSON.parse(draft)
+		} catch (e) {
+			setProblem(`This is not JSON, so it is not kept: ${e instanceof Error ? e.message : String(e)}`)
+			return
+		}
+		if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+			setProblem('This has to be an object, in braces, so it is not kept.')
+			return
+		}
+		setProblem(undefined)
+		ctx.makeEdit(range => nodeFromJson(value, range))
+	}, [draft, text, ctx])
+
+	return <div class="node-body node-raw">
+		<textarea aria-label="The value as JSON" spellcheck={false} rows={Math.min(16, Math.max(2, draft.split('\n').length))} value={draft}
+			onInput={e => setDraft((e.target as HTMLTextAreaElement).value)} onBlur={onCommit} />
+		{problem !== undefined && <p class="node-raw-error" role="alert">{problem}</p>}
+	</div>
 }
 
 const SPECIAL_UNSET = '__unset__'

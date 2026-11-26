@@ -44,6 +44,67 @@ export function getRootDefault(id: string, ctx: core.CheckerContext) {
 	return getDefault(type, core.Range.create(0), ctx)
 }
 
+/** A value as the node that the form works on, for values that are typed as JSON and not made field by field */
+export function nodeFromJson(value: unknown, range: core.Range): JsonNode {
+	if (typeof value === 'string') {
+		return { type: 'json:string', range, options: JsonStringOptions, value, valueMap: [{ inner: core.Range.create(0), outer: core.Range.create(range.start) }] }
+	}
+	if (typeof value === 'boolean') {
+		return { type: 'json:boolean', range, value }
+	}
+	if (typeof value === 'number') {
+		const number: core.LongNode | core.FloatNode = Number.isInteger(value)
+			? { type: 'long', range, value: BigInt(value) }
+			: { type: 'float', range, value }
+		return { type: 'json:number', range, value: number, children: [number] }
+	}
+	if (Array.isArray(value)) {
+		const array = JsonArrayNode.mock(range)
+		for (const item of value) {
+			const child = nodeFromJson(item, range)
+			const itemNode: core.ItemNode<JsonNode> = { type: 'item', range, children: [child], value: child }
+			child.parent = itemNode
+			array.children.push(itemNode)
+			itemNode.parent = array
+		}
+		return array
+	}
+	if (typeof value === 'object' && value !== null) {
+		const object = JsonObjectNode.mock(range)
+		for (const [name, item] of Object.entries(value)) {
+			const key = nodeFromJson(name, range) as JsonStringNode
+			const child = nodeFromJson(item, range)
+			const pair: JsonPairNode = { type: 'pair', range, key, value: child, children: [key, child] }
+			key.parent = pair
+			child.parent = pair
+			object.children.push(pair)
+			pair.parent = object
+		}
+		return object
+	}
+	return { type: 'json:null', range }
+}
+
+/** The value that a node of the form stands for */
+export function jsonFromNode(node: JsonNode | undefined): unknown {
+	if (JsonObjectNode.is(node)) {
+		const result: Record<string, unknown> = {}
+		for (const pair of node.children) {
+			if (pair.key) result[pair.key.value] = jsonFromNode(pair.value)
+		}
+		return result
+	}
+	if (JsonArrayNode.is(node)) {
+		return node.children.map(item => jsonFromNode(item.value))
+	}
+	switch (node?.type) {
+		case 'json:string': return node.value
+		case 'json:boolean': return node.value
+		case 'json:number': return Number(node.value.value)
+		default: return null
+	}
+}
+
 export function getDefault(type: SimplifiedMcdocType, range: core.Range, ctx: core.CheckerContext): JsonNode {
 	if (type.kind === 'string') {
 		return JsonStringNode.mock(range)
